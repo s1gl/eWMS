@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
 from sqlalchemy import select
@@ -10,7 +11,17 @@ from app.models.inventory import Inventory
 from app.db.session import get_session
 
 
-app = FastAPI(title="WMS API")
+# ---------------- APP + CORS ----------------------
+
+app = FastAPI(title="WMS API", version="0.1.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/health")
@@ -118,10 +129,18 @@ class InventoryRead(BaseModel):
 # ---------------- WAREHOUSES ----------------------
 
 @app.post("/warehouses", response_model=WarehouseRead)
-async def create_warehouse(payload: WarehouseCreate, session: AsyncSession = Depends(get_session)):
-    result = await session.execute(select(Warehouse).where(Warehouse.code == payload.code))
+async def create_warehouse(
+    payload: WarehouseCreate,
+    session: AsyncSession = Depends(get_session),
+):
+    result = await session.execute(
+        select(Warehouse).where(Warehouse.code == payload.code)
+    )
     if result.scalar_one_or_none():
-        raise HTTPException(400, f"Warehouse with code '{payload.code}' already exists")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Warehouse with code '{payload.code}' already exists",
+        )
 
     warehouse = Warehouse(name=payload.name, code=payload.code)
     session.add(warehouse)
@@ -139,12 +158,23 @@ async def list_warehouses(session: AsyncSession = Depends(get_session)):
 # ---------------- ZONES ----------------------
 
 @app.post("/zones", response_model=ZoneRead)
-async def create_zone(payload: ZoneCreate, session: AsyncSession = Depends(get_session)):
-    warehouse = (await session.execute(select(Warehouse).where(Warehouse.id == payload.warehouse_id))).scalar_one_or_none()
+async def create_zone(
+    payload: ZoneCreate,
+    session: AsyncSession = Depends(get_session),
+):
+    warehouse = (
+        await session.execute(
+            select(Warehouse).where(Warehouse.id == payload.warehouse_id)
+        )
+    ).scalar_one_or_none()
     if warehouse is None:
-        raise HTTPException(400, "Warehouse not found")
+        raise HTTPException(status_code=400, detail="Warehouse not found")
 
-    zone = Zone(name=payload.name, code=payload.code, warehouse_id=payload.warehouse_id)
+    zone = Zone(
+        name=payload.name,
+        code=payload.code,
+        warehouse_id=payload.warehouse_id,
+    )
     session.add(zone)
     await session.commit()
     await session.refresh(zone)
@@ -152,7 +182,10 @@ async def create_zone(payload: ZoneCreate, session: AsyncSession = Depends(get_s
 
 
 @app.get("/zones", response_model=List[ZoneRead])
-async def list_zones(warehouse_id: Optional[int] = None, session: AsyncSession = Depends(get_session)):
+async def list_zones(
+    warehouse_id: Optional[int] = None,
+    session: AsyncSession = Depends(get_session),
+):
     stmt = select(Zone)
     if warehouse_id:
         stmt = stmt.where(Zone.warehouse_id == warehouse_id)
@@ -164,10 +197,17 @@ async def list_zones(warehouse_id: Optional[int] = None, session: AsyncSession =
 # ---------------- LOCATIONS ----------------------
 
 @app.post("/locations", response_model=LocationRead)
-async def create_location(payload: LocationCreate, session: AsyncSession = Depends(get_session)):
-    warehouse = (await session.execute(select(Warehouse).where(Warehouse.id == payload.warehouse_id))).scalar_one_or_none()
+async def create_location(
+    payload: LocationCreate,
+    session: AsyncSession = Depends(get_session),
+):
+    warehouse = (
+        await session.execute(
+            select(Warehouse).where(Warehouse.id == payload.warehouse_id)
+        )
+    ).scalar_one_or_none()
     if warehouse is None:
-        raise HTTPException(400, "Warehouse not found")
+        raise HTTPException(status_code=400, detail="Warehouse not found")
 
     location = Location(
         warehouse_id=payload.warehouse_id,
@@ -202,10 +242,18 @@ async def list_locations(
 # ---------------- ITEMS ----------------------
 
 @app.post("/items", response_model=ItemRead)
-async def create_item(payload: ItemCreate, session: AsyncSession = Depends(get_session)):
-    existing = (await session.execute(select(Item).where(Item.sku == payload.sku))).scalar_one_or_none()
+async def create_item(
+    payload: ItemCreate,
+    session: AsyncSession = Depends(get_session),
+):
+    existing = (
+        await session.execute(select(Item).where(Item.sku == payload.sku))
+    ).scalar_one_or_none()
     if existing:
-        raise HTTPException(400, f"Item with sku '{payload.sku}' already exists")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Item with sku '{payload.sku}' already exists",
+        )
 
     item = Item(
         sku=payload.sku,
@@ -228,32 +276,46 @@ async def list_items(session: AsyncSession = Depends(get_session)):
 # ---------------- INVENTORY: INBOUND ----------------------
 
 @app.post("/inventory/inbound", response_model=InventoryRead)
-async def inventory_inbound(payload: InboundCreate, session: AsyncSession = Depends(get_session)):
-
+async def inventory_inbound(
+    payload: InboundCreate,
+    session: AsyncSession = Depends(get_session),
+):
     if payload.qty <= 0:
-        raise HTTPException(400, "qty must be > 0")
+        raise HTTPException(status_code=400, detail="qty must be > 0")
 
     # Проверяем склад, ячейку и товар
-    warehouse = (await session.execute(select(Warehouse).where(Warehouse.id == payload.warehouse_id))).scalar_one_or_none()
+    warehouse = (
+        await session.execute(
+            select(Warehouse).where(Warehouse.id == payload.warehouse_id)
+        )
+    ).scalar_one_or_none()
     if not warehouse:
-        raise HTTPException(400, "Warehouse not found")
+        raise HTTPException(status_code=400, detail="Warehouse not found")
 
-    location = (await session.execute(select(Location).where(Location.id == payload.location_id))).scalar_one_or_none()
+    location = (
+        await session.execute(
+            select(Location).where(Location.id == payload.location_id)
+        )
+    ).scalar_one_or_none()
     if not location:
-        raise HTTPException(400, "Location not found")
+        raise HTTPException(status_code=400, detail="Location not found")
 
-    item = (await session.execute(select(Item).where(Item.id == payload.item_id))).scalar_one_or_none()
+    item = (
+        await session.execute(select(Item).where(Item.id == payload.item_id))
+    ).scalar_one_or_none()
     if not item:
-        raise HTTPException(400, "Item not found")
+        raise HTTPException(status_code=400, detail="Item not found")
 
     # Ищем остаток
-    inv = (await session.execute(
-        select(Inventory).where(
-            Inventory.warehouse_id == payload.warehouse_id,
-            Inventory.location_id == payload.location_id,
-            Inventory.item_id == payload.item_id,
+    inv = (
+        await session.execute(
+            select(Inventory).where(
+                Inventory.warehouse_id == payload.warehouse_id,
+                Inventory.location_id == payload.location_id,
+                Inventory.item_id == payload.item_id,
+            )
         )
-    )).scalar_one_or_none()
+    ).scalar_one_or_none()
 
     if inv is None:
         inv = Inventory(
@@ -274,41 +336,60 @@ async def inventory_inbound(payload: InboundCreate, session: AsyncSession = Depe
 # ---------------- INVENTORY: MOVE ----------------------
 
 @app.post("/inventory/move")
-async def inventory_move(payload: MoveCreate, session: AsyncSession = Depends(get_session)):
-
+async def inventory_move(
+    payload: MoveCreate,
+    session: AsyncSession = Depends(get_session),
+):
     if payload.qty <= 0:
-        raise HTTPException(400, "qty must be > 0")
+        raise HTTPException(status_code=400, detail="qty must be > 0")
 
     if payload.from_location_id == payload.to_location_id:
-        raise HTTPException(400, "Cannot move to same location")
+        raise HTTPException(
+            status_code=400, detail="Cannot move to same location"
+        )
 
     # Проверяем, что обе ячейки есть
-    from_loc = (await session.execute(select(Location).where(Location.id == payload.from_location_id))).scalar_one_or_none()
-    to_loc = (await session.execute(select(Location).where(Location.id == payload.to_location_id))).scalar_one_or_none()
+    from_loc = (
+        await session.execute(
+            select(Location).where(Location.id == payload.from_location_id)
+        )
+    ).scalar_one_or_none()
+    to_loc = (
+        await session.execute(
+            select(Location).where(Location.id == payload.to_location_id)
+        )
+    ).scalar_one_or_none()
 
     if not from_loc or not to_loc:
-        raise HTTPException(400, "Location not found")
+        raise HTTPException(status_code=400, detail="Location not found")
 
     # Проверяем остатки
-    from_inv = (await session.execute(
-        select(Inventory).where(
-            Inventory.warehouse_id == payload.warehouse_id,
-            Inventory.location_id == payload.from_location_id,
-            Inventory.item_id == payload.item_id,
+    from_inv = (
+        await session.execute(
+            select(Inventory).where(
+                Inventory.warehouse_id == payload.warehouse_id,
+                Inventory.location_id == payload.from_location_id,
+                Inventory.item_id == payload.item_id,
+            )
         )
-    )).scalar_one_or_none()
+    ).scalar_one_or_none()
 
     if not from_inv or from_inv.quantity < payload.qty:
-        raise HTTPException(400, "Not enough quantity on source location")
+        raise HTTPException(
+            status_code=400,
+            detail="Not enough quantity on source location",
+        )
 
     # Ищем запись на целевой ячейке
-    to_inv = (await session.execute(
-        select(Inventory).where(
-            Inventory.location_id == payload.to_location_id,
-            Inventory.item_id == payload.item_id,
-            Inventory.warehouse_id == payload.warehouse_id,
+    to_inv = (
+        await session.execute(
+            select(Inventory).where(
+                Inventory.location_id == payload.to_location_id,
+                Inventory.item_id == payload.item_id,
+                Inventory.warehouse_id == payload.warehouse_id,
+            )
         )
-    )).scalar_one_or_none()
+    ).scalar_one_or_none()
 
     # Списываем
     from_inv.quantity -= payload.qty
@@ -326,7 +407,6 @@ async def inventory_move(payload: MoveCreate, session: AsyncSession = Depends(ge
         to_inv.quantity += payload.qty
 
     await session.commit()
-
     return {"status": "ok"}
 
 
