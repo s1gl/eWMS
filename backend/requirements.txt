@@ -5,4 +5,8 @@ SQLAlchemy
 python-dotenv
 alembic
 psycopg2-binary
+pytest
+pytest-asyncio
+httpx
+aiosqlite
 
