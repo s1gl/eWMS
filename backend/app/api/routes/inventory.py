@@ -6,6 +6,7 @@ from app.db.session import get_session
 from app.models.inventory import Inventory
 from app.models.item import Item
 from app.models.warehouse import Location, Warehouse
+from app.models.movement import Movement
 from app.schemas import InboundCreate, InventoryRead, MoveCreate
 
 router = APIRouter(prefix="/inventory", tags=["inventory"])
@@ -58,6 +59,15 @@ async def inventory_inbound(
         session.add(inv)
     else:
         inv.quantity += payload.qty
+
+    movement = Movement(
+        warehouse_id=payload.warehouse_id,
+        item_id=payload.item_id,
+        from_location_id=None,
+        to_location_id=payload.location_id,
+        quantity=payload.qty,
+    )
+    session.add(movement)
 
     await session.commit()
     await session.refresh(inv)
@@ -121,6 +131,15 @@ async def inventory_move(
         session.add(to_inv)
     else:
         to_inv.quantity += payload.qty
+
+    move_record = Movement(
+        warehouse_id=payload.warehouse_id,
+        item_id=payload.item_id,
+        from_location_id=payload.from_location_id,
+        to_location_id=payload.to_location_id,
+        quantity=payload.qty,
+    )
+    session.add(move_record)
 
     await session.commit()
     return {"status": "ok"}
