@@ -9,7 +9,7 @@ from app.schemas import ItemCreate, ItemRead
 router = APIRouter(prefix="/items", tags=["items"])
 
 
-@router.post("", response_model=ItemRead, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=ItemRead, status_code=status.HTTP_200_OK)
 async def create_item(
     payload: ItemCreate,
     session: AsyncSession = Depends(get_session),

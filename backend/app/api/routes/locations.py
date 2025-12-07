@@ -9,7 +9,7 @@ from app.schemas import LocationCreate, LocationRead
 router = APIRouter(prefix="/locations", tags=["locations"])
 
 
-@router.post("", response_model=LocationRead, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=LocationRead, status_code=status.HTTP_200_OK)
 async def create_location(
     payload: LocationCreate,
     session: AsyncSession = Depends(get_session),
