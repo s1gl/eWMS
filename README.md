@@ -151,3 +151,17 @@ Swagger РґРѕСЃС‚СѓРїРµРЅ РїРѕ Р°РґСЂРµСЃСѓ:
 ## рџ“њ License
 MIT License
 
+
+## Frontend (React + Vite)
+
+Локальный запуск:
+1. `cd frontend`
+2. `npm install`
+3. `npm run dev` — по умолчанию фронт доступен на http://localhost:5173
+
+Запуск через Docker Compose (фронт + бэкенд + БД):
+1. `docker compose up --build`
+2. Backend: http://localhost:8000, Swagger: http://localhost:8000/docs
+3. Frontend: http://localhost:5173
+
+Фронтенд обращается к API по `http://localhost:8000` (CORS включён в FastAPI).
