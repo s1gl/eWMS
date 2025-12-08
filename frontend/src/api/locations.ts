@@ -1,5 +1,5 @@
 import { request } from "./client";
-import { Location } from "../types";
+import { Location, LocationCreate } from "../types";
 
 type Params = {
   warehouse_id?: number;
@@ -13,3 +13,9 @@ export const fetchLocations = (params: Params = {}) => {
   const query = search.toString();
   return request<Location[]>(`/locations${query ? `?${query}` : ""}`);
 };
+
+export const createLocation = (payload: LocationCreate) =>
+  request<Location>("/locations", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });

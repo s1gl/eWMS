@@ -17,6 +17,12 @@ export type Zone = {
   warehouse_id: number;
 };
 
+export type ZoneCreate = {
+  name: string;
+  code: string;
+  warehouse_id: number;
+};
+
 export type Location = {
   id: number;
   warehouse_id: number;
