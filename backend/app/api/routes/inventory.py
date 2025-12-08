@@ -5,9 +5,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_session
 from app.models.inventory import Inventory
 from app.models.item import Item
-from app.models.warehouse import Location, Warehouse
 from app.models.movement import Movement
+from app.models.warehouse import Location, Warehouse
 from app.schemas import InboundCreate, InventoryRead, MoveCreate
+from app.services.inventory import increment_inventory
 
 router = APIRouter(prefix="/inventory", tags=["inventory"])
 
@@ -21,44 +22,13 @@ async def inventory_inbound(
     payload: InboundCreate,
     session: AsyncSession = Depends(get_session),
 ):
-    warehouse = await session.get(Warehouse, payload.warehouse_id)
-    if warehouse is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Warehouse not found"
-        )
-
-    location = await session.get(Location, payload.location_id)
-    if location is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Location not found"
-        )
-
-    item = await session.get(Item, payload.item_id)
-    if item is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Item not found"
-        )
-
-    inv = (
-        await session.execute(
-            select(Inventory).where(
-                Inventory.warehouse_id == payload.warehouse_id,
-                Inventory.location_id == payload.location_id,
-                Inventory.item_id == payload.item_id,
-            )
-        )
-    ).scalar_one_or_none()
-
-    if inv is None:
-        inv = Inventory(
-            warehouse_id=payload.warehouse_id,
-            location_id=payload.location_id,
-            item_id=payload.item_id,
-            quantity=payload.qty,
-        )
-        session.add(inv)
-    else:
-        inv.quantity += payload.qty
+    inv = await increment_inventory(
+        session,
+        warehouse_id=payload.warehouse_id,
+        location_id=payload.location_id,
+        item_id=payload.item_id,
+        qty=payload.qty,
+    )
 
     movement = Movement(
         warehouse_id=payload.warehouse_id,

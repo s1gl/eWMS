@@ -30,7 +30,6 @@ class InboundOrderCreate(BaseModel):
     external_number: str
     warehouse_id: int
     partner_id: Optional[int] = None
-    status: InboundStatus = InboundStatus.draft
     lines: List[InboundOrderLineCreate]
 
 
@@ -49,3 +48,9 @@ class InboundOrderRead(BaseModel):
 
 class InboundOrderStatusUpdate(BaseModel):
     status: InboundStatus
+
+
+class InboundReceiveRequest(BaseModel):
+    line_id: int
+    location_id: int
+    qty: int = Field(gt=0)

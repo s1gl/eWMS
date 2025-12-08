@@ -19,7 +19,9 @@ from app.schemas import (
     InboundOrderCreate,
     InboundOrderRead,
     InboundOrderStatusUpdate,
+    InboundReceiveRequest,
 )
+from app.services.inventory import increment_inventory
 
 router = APIRouter(prefix="/inbound_orders", tags=["inbound_orders"])
 
@@ -83,18 +85,19 @@ async def create_inbound_order(
         external_number=payload.external_number,
         warehouse_id=payload.warehouse_id,
         partner_id=payload.partner_id,
-        status=payload.status,
+        status=InboundStatus.draft,
     )
-    order.lines = [
-        InboundOrderLine(
-            item_id=line.item_id,
-            expected_qty=line.expected_qty,
-            received_qty=line.received_qty,
-            location_id=line.location_id,
-            line_status=line.line_status,
+    order.lines = []
+    for line in payload.lines:
+        order.lines.append(
+            InboundOrderLine(
+                item_id=line.item_id,
+                expected_qty=line.expected_qty,
+                received_qty=line.received_qty,
+                location_id=line.location_id,
+                line_status=line.line_status or "open",
+            )
         )
-        for line in payload.lines
-    ]
 
     session.add(order)
     await session.commit()
@@ -108,6 +111,7 @@ async def list_inbound_orders(
     warehouse_id: int | None = None,
     status_filter: InboundStatus | None = None,
     partner_id: int | None = None,
+    external_number: str | None = None,
     session: AsyncSession = Depends(get_session),
 ):
     stmt = select(InboundOrder).options(selectinload(InboundOrder.lines))
@@ -117,6 +121,8 @@ async def list_inbound_orders(
         stmt = stmt.where(InboundOrder.status == status_filter)
     if partner_id:
         stmt = stmt.where(InboundOrder.partner_id == partner_id)
+    if external_number:
+        stmt = stmt.where(InboundOrder.external_number.ilike(f"%{external_number}%"))
 
     result = await session.execute(stmt)
     return result.scalars().all()
@@ -207,6 +213,54 @@ async def update_inbound_status(
             session.add(movement)
 
     order.status = payload.status
+    await session.commit()
+    await session.refresh(order)
+    await session.refresh(order, attribute_names=["lines"])
+    return order
+
+
+@router.post("/{order_id}/receive", response_model=InboundOrderRead)
+async def receive_inbound_line(
+    order_id: int,
+    payload: InboundReceiveRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    order = await _get_inbound_with_lines(session, order_id)
+    if order is None:
+        raise HTTPException(status_code=404, detail="Inbound order not found")
+    if order.status != InboundStatus.in_progress:
+        raise HTTPException(status_code=400, detail="Order must be in progress to receive")
+
+    line = next((ln for ln in order.lines if ln.id == payload.line_id), None)
+    if line is None:
+        raise HTTPException(status_code=404, detail="Line not found in this order")
+
+    if line.received_qty + payload.qty > line.expected_qty:
+        raise HTTPException(status_code=400, detail="Received quantity exceeds expected")
+
+    # validate location belongs to warehouse
+    location = await session.get(Location, payload.location_id)
+    if location is None:
+        raise HTTPException(status_code=404, detail="Location not found")
+    if location.warehouse_id != order.warehouse_id:
+        raise HTTPException(status_code=400, detail="Location not in order warehouse")
+
+    # increment inventory
+    await increment_inventory(
+        session,
+        warehouse_id=order.warehouse_id,
+        location_id=payload.location_id,
+        item_id=line.item_id,
+        qty=payload.qty,
+    )
+
+    line.received_qty += payload.qty
+    # update line status
+    if line.received_qty == line.expected_qty:
+        line.line_status = "fully_received"
+    elif line.received_qty > 0:
+        line.line_status = "partially_received"
+
     await session.commit()
     await session.refresh(order)
     await session.refresh(order, attribute_names=["lines"])

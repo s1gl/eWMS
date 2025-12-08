@@ -9,6 +9,7 @@ from app.schemas.inbound_order import (
     InboundOrderRead,
     InboundOrderStatusUpdate,
     InboundOrderLineRead,
+    InboundReceiveRequest,
 )
 from app.schemas.outbound_order import (
     OutboundOrderCreate,
@@ -43,6 +44,7 @@ __all__ = [
     "InboundOrderRead",
     "InboundOrderStatusUpdate",
     "InboundOrderLineRead",
+    "InboundReceiveRequest",
     "OutboundOrderCreate",
     "OutboundOrderRead",
     "OutboundOrderStatusUpdate",

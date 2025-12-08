@@ -82,3 +82,50 @@ async def test_inbound_status_transition_and_inventory(client: AsyncClient):
     data = inv.json()
     assert len(data) == 1
     assert data[0]["quantity"] == 3
+
+
+@pytest.mark.asyncio
+async def test_receive_inbound_line_updates_inventory(client: AsyncClient):
+    warehouse_id, location_id, item_id, partner_id = await _create_base_entities(client)
+
+    resp = await client.post(
+        "/inbound_orders",
+        json={
+            "external_number": "INB-REC",
+            "warehouse_id": warehouse_id,
+            "partner_id": partner_id,
+            "status": "draft",
+            "lines": [
+                {
+                    "item_id": item_id,
+                    "expected_qty": 5,
+                    "received_qty": 0,
+                    "location_id": location_id,
+                }
+            ],
+        },
+    )
+    order = resp.json()
+    line_id = order["lines"][0]["id"]
+
+    await client.patch(
+        f"/inbound_orders/{order['id']}/status", json={"status": "in_progress"}
+    )
+
+    receive = await client.post(
+        f"/inbound_orders/{order['id']}/receive",
+        json={"line_id": line_id, "location_id": location_id, "qty": 3},
+    )
+    assert receive.status_code == 200
+    updated = receive.json()
+    line = next(l for l in updated["lines"] if l["id"] == line_id)
+    assert line["received_qty"] == 3
+    assert line["line_status"] in ("partially_received", "fully_received")
+
+    inv = await client.get(
+        "/inventory",
+        params={"warehouse_id": warehouse_id, "location_id": location_id, "item_id": item_id},
+    )
+    data = inv.json()
+    assert len(data) == 1
+    assert data[0]["quantity"] == 3

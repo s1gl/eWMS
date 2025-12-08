@@ -1,0 +1,95 @@
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { getInboundOrders } from "../api/inbound";
+import { fetchWarehouses } from "../api/warehouses";
+import { InboundOrder, InboundStatus } from "../types/inbound";
+import { Warehouse } from "../types/warehouse";
+import Card from "../components/Card";
+import Notice from "../components/Notice";
+
+const statusLabels: Record<InboundStatus, string> = {
+  draft: "Черновик",
+  in_progress: "В процессе",
+  completed: "Завершена",
+  cancelled: "Отменена",
+};
+
+export default function InboundListPage() {
+  const [orders, setOrders] = useState<InboundOrder[]>([]);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const [data, wh] = await Promise.all([getInboundOrders(), fetchWarehouses()]);
+        setOrders(data);
+        setWarehouses(wh);
+      } catch (e: any) {
+        setError(e.message || "Не удалось загрузить поставки");
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  const warehouseName = (id: number) => {
+    const wh = warehouses.find((w) => w.id === id);
+    return wh ? `${wh.name} (${wh.code})` : id;
+  };
+
+  return (
+    <div className="page">
+      <Card
+        title="Поставки"
+        actions={
+          <Link className="ghost" to="/inbound/new">
+            Создать поставку
+          </Link>
+        }
+      >
+        {error && <Notice tone="error">{error}</Notice>}
+        {loading && <Notice tone="info">Загрузка...</Notice>}
+        <div className="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Номер</th>
+                <th>Склад</th>
+                <th>Статус</th>
+                <th>Создана</th>
+                <th>Обновлена</th>
+              </tr>
+            </thead>
+            <tbody>
+              {orders.map((o) => (
+                <tr key={o.id}>
+                  <td>
+                    <Link to={`/inbound/${o.id}`}>#{o.id}</Link>
+                  </td>
+                  <td>{o.external_number}</td>
+                  <td>{warehouseName(o.warehouse_id)}</td>
+                  <td>{statusLabels[o.status] || o.status}</td>
+                  <td>{o.created_at || "—"}</td>
+                  <td>{o.updated_at || "—"}</td>
+                </tr>
+              ))}
+              {orders.length === 0 && (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: "center" }}>
+                    Нет поставок
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  );
+}
