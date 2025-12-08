@@ -55,3 +55,4 @@ class InboundReceiveRequest(BaseModel):
     location_id: int
     qty: int = Field(gt=0)
     item_id: Optional[int] = None
+    condition: Optional[str] = None

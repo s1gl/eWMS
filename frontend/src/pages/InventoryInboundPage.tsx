@@ -10,7 +10,13 @@ import { Location } from "../types/location";
 import { Item } from "../types";
 import { useNavigate } from "react-router-dom";
 
-type LineForm = { qty: string; location_id: string };
+type ReceiveForm = {
+  line_id: string;
+  item_id: string;
+  condition: string;
+  location_id: string;
+  qty: string;
+};
 
 const statusLabels: Record<InboundStatus, string> = {
   draft: "Черновик",
@@ -39,7 +45,13 @@ export default function InventoryInboundPage() {
   const [order, setOrder] = useState<InboundOrder | null>(null);
   const [locations, setLocations] = useState<Location[]>([]);
   const [items, setItems] = useState<Item[]>([]);
-  const [forms, setForms] = useState<Record<number, LineForm>>({});
+  const [form, setForm] = useState<ReceiveForm>({
+    line_id: "",
+    item_id: "",
+    condition: "good",
+    location_id: "",
+    qty: "",
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -61,12 +73,15 @@ export default function InventoryInboundPage() {
         setOrder(ord);
         const locs = await fetchLocations({ warehouse_id: ord.warehouse_id });
         setLocations(locs);
-        setForms(
-          ord.lines.reduce<Record<number, LineForm>>((acc, line) => {
-            acc[line.id] = { qty: "", location_id: (line.location_id ?? "").toString() };
-            return acc;
-          }, {})
-        );
+        if (ord.lines.length) {
+          const firstLine = ord.lines[0];
+          setForm((prev) => ({
+            ...prev,
+            line_id: String(firstLine.id),
+            item_id: String(firstLine.item_id),
+            location_id: (firstLine.location_id ?? "").toString(),
+          }));
+        }
       } catch (e: any) {
         setError(e.message || "Не удалось загрузить выбранную поставку");
       } finally {
@@ -113,12 +128,17 @@ export default function InventoryInboundPage() {
     }
   };
 
-  const handleReceive = async (line: InboundOrderLine, e: FormEvent<HTMLFormElement>) => {
+  const handleReceive = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!order) return;
-    const form = forms[line.id] || { qty: "", location_id: "" };
     const qty = Number(form.qty);
     const locationId = Number(form.location_id);
+    const lineId = Number(form.line_id);
+    const itemId = Number(form.item_id);
+    if (!lineId) {
+      setError("Выберите строку поставки");
+      return;
+    }
     if (!locationId) {
       setError("Выберите ячейку склада");
       return;
@@ -127,21 +147,25 @@ export default function InventoryInboundPage() {
       setError("Количество к приёмке должно быть больше нуля");
       return;
     }
+    if (!itemId) {
+      setError("Выберите товар для приёмки");
+      return;
+    }
     setLoading(true);
     setError(null);
     setMessage(null);
     setProblem(false);
     try {
-      const updatedOrder = await receiveInboundLine(order.id, {
-        line_id: line.id,
+      const payload: any = {
+        line_id: lineId,
         location_id: locationId,
         qty,
-      });
+        item_id: itemId,
+      };
+      if (form.condition) payload.condition = form.condition;
+      const updatedOrder = await receiveInboundLine(order.id, payload);
       setOrder(updatedOrder);
-      setForms((prev) => ({
-        ...prev,
-        [line.id]: { qty: "", location_id: form.location_id },
-      }));
+      setForm((prev) => ({ ...prev, qty: "" }));
       setMessage("Приёмка по товару выполнена");
       await completeIfReady(updatedOrder);
     } catch (e: any) {
@@ -166,6 +190,14 @@ export default function InventoryInboundPage() {
   const activeOrders = orders.filter(
     (o) => o.status === "in_progress" || o.status === "problem" || o.status === "mis_sort"
   );
+
+  const currentLine: InboundOrderLine | undefined = order?.lines.find(
+    (ln) => ln.id === Number(form.line_id)
+  );
+  const lineItemsOptions = order?.lines.map((ln) => ({
+    value: ln.id,
+    label: `Строка #${ln.id} — товар ID ${ln.item_id}`,
+  })) ?? [];
 
   return (
     <div className="page">
@@ -203,10 +235,10 @@ export default function InventoryInboundPage() {
       </Card>
 
       {order && (
-        <Card title="Данные поставки">
-          <div className="grid two" style={{ marginBottom: 12 }}>
-            <div>
-              <p>
+      <Card title="Данные поставки">
+        <div className="grid two" style={{ marginBottom: 12 }}>
+          <div>
+            <p>
                 <strong>Номер поставки:</strong>{" "}
                 {order.external_number || `№${order.id}`}
               </p>
@@ -238,6 +270,90 @@ export default function InventoryInboundPage() {
               </Notice>
             )}
           </div>
+        </Card>
+      )}
+
+      {order && (
+        <Card title="Приёмка по строке">
+          <form className="form" onSubmit={handleReceive}>
+            <FormField label="Строка поставки">
+              <select
+                value={form.line_id}
+                onChange={(e) => {
+                  const lineId = e.target.value;
+                  const ln = order.lines.find((l) => l.id === Number(lineId));
+                  setForm((prev) => ({
+                    ...prev,
+                    line_id: lineId,
+                    item_id: ln ? String(ln.item_id) : prev.item_id,
+                    location_id: ln?.location_id ? String(ln.location_id) : prev.location_id,
+                  }));
+                }}
+              >
+                <option value="">Выберите строку</option>
+                {lineItemsOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+
+            <FormField label="Товар">
+              <select
+                value={form.item_id}
+                onChange={(e) => setForm((prev) => ({ ...prev, item_id: e.target.value }))}
+              >
+                <option value="">Выберите товар</option>
+                {items.map((it) => (
+                  <option key={it.id} value={it.id}>
+                    {it.name} ({it.sku})
+                  </option>
+                ))}
+              </select>
+            </FormField>
+
+            <FormField label="Состояние">
+              <select
+                value={form.condition}
+                onChange={(e) => setForm((prev) => ({ ...prev, condition: e.target.value }))}
+              >
+                <option value="good">Годен</option>
+                <option value="defect">Брак</option>
+                <option value="quarantine">Карантин</option>
+              </select>
+            </FormField>
+
+            <FormField label="Количество">
+              <input
+                type="number"
+                min={1}
+                value={form.qty}
+                onChange={(e) => setForm((prev) => ({ ...prev, qty: e.target.value }))}
+                placeholder="Введите количество"
+              />
+            </FormField>
+
+            <FormField label="Ячейка хранения">
+              <select
+                value={form.location_id}
+                onChange={(e) => setForm((prev) => ({ ...prev, location_id: e.target.value }))}
+              >
+                <option value="">Выберите ячейку, куда положите товар</option>
+                {(locationsByWarehouse.get(order.warehouse_id) || []).map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.code}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+
+            <div className="actions-row">
+              <button type="submit" disabled={loading || !form.line_id || !form.location_id}>
+                {loading ? "Обработка..." : "Принять"}
+              </button>
+            </div>
+          </form>
         </Card>
       )}
 

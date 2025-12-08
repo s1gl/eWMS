@@ -276,6 +276,8 @@ async def receive_inbound_line(
     elif line.received_qty > line.expected_qty:
         line.line_status = "over_received"
         order.status = InboundStatus.problem
+    elif payload.condition:
+        line.line_status = payload.condition
     # update line status
     if line.line_status in {"mis_sort", "over_received"}:
         pass

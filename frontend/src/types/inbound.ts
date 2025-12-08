@@ -48,4 +48,6 @@ export type InboundReceivePayload = {
   line_id: number;
   location_id: number;
   qty: number;
+  item_id?: number;
+  condition?: string;
 };
