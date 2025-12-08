@@ -138,7 +138,7 @@ export default function InventoryStockPage() {
                 return (
                   <tr key={inv.id}>
                     <td>{inv.id}</td>
-                    <td>{inv.warehouse_id}</td>
+                    <td>{getWarehouseCode(inv.warehouse_id, warehouses)}</td>
                     <td>{getLocationCode(inv.location_id, locations)}</td>
                     <td>{item?.sku ?? "—"}</td>
                     <td>{item?.name ?? "—"}</td>
@@ -169,6 +169,11 @@ function toNum(value: string) {
 
 function getLocationCode(id: number, list: Location[]) {
   const found = list.find((l) => l.id === id);
+  return found ? found.code : id;
+}
+
+function getWarehouseCode(id: number, list: Warehouse[]) {
+  const found = list.find((w) => w.id === id);
   return found ? found.code : id;
 }
 
