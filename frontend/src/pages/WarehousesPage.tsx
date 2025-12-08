@@ -15,6 +15,7 @@ export default function WarehousesPage() {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [editId, setEditId] = useState<number | null>(null);
+  const [isActive, setIsActive] = useState<boolean>(true);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -44,7 +45,11 @@ export default function WarehousesPage() {
     setMessage(null);
     try {
       if (editId) {
-        await updateWarehouse(editId, { name: name.trim(), code: code.trim() });
+        await updateWarehouse(editId, {
+          name: name.trim(),
+          code: code.trim(),
+          is_active: isActive,
+        });
         setMessage("Склад обновлён");
       } else {
         await createWarehouse({ name: name.trim(), code: code.trim() });
@@ -52,6 +57,7 @@ export default function WarehousesPage() {
       }
       setName("");
       setCode("");
+      setIsActive(true);
       setEditId(null);
       await load();
     } catch (err: any) {
@@ -65,6 +71,7 @@ export default function WarehousesPage() {
     setEditId(wh.id);
     setName(wh.name);
     setCode(wh.code);
+    setIsActive(wh.is_active);
     setMessage(null);
     setError(null);
   };
@@ -107,6 +114,16 @@ export default function WarehousesPage() {
               required
             />
           </FormField>
+          <FormField label="Активен">
+            <select
+              value={isActive ? "true" : "false"}
+              onChange={(e) => setIsActive(e.target.value === "true")}
+              disabled={!editId}
+            >
+              <option value="true">Да</option>
+              <option value="false">Нет</option>
+            </select>
+          </FormField>
           <div className="actions-row">
             <button type="submit" disabled={loading}>
               {loading ? "Сохраняю..." : editId ? "Сохранить" : "Создать склад"}
@@ -119,6 +136,7 @@ export default function WarehousesPage() {
                   setEditId(null);
                   setName("");
                   setCode("");
+                  setIsActive(true);
                 }}
               >
                 Отмена
