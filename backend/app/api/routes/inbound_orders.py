@@ -235,7 +235,11 @@ async def receive_inbound_line(
     order = await _get_inbound_with_lines(session, order_id)
     if order is None:
         raise HTTPException(status_code=404, detail="Inbound order not found")
-    if order.status != InboundStatus.in_progress:
+    if order.status not in {
+        InboundStatus.in_progress,
+        InboundStatus.problem,
+        InboundStatus.mis_sort,
+    }:
         raise HTTPException(status_code=400, detail="Order must be in progress to receive")
 
     line = next((ln for ln in order.lines if ln.id == payload.line_id), None)
