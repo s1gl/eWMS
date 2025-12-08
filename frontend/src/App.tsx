@@ -1,12 +1,16 @@
 import { NavLink, Route, Routes, Navigate } from "react-router-dom";
 import WarehousesPage from "./pages/WarehousesPage";
 import ItemsPage from "./pages/ItemsPage";
-import InventoryPage from "./pages/InventoryPage";
+import InventoryInboundPage from "./pages/InventoryInboundPage";
+import InventoryMovePage from "./pages/InventoryMovePage";
+import InventoryStockPage from "./pages/InventoryStockPage";
 
 const navLinks = [
   { to: "/warehouses", label: "Склады" },
   { to: "/items", label: "Товары" },
-  { to: "/inventory", label: "Остатки" },
+  { to: "/inventory/inbound", label: "Приёмка" },
+  { to: "/inventory/move", label: "Перемещение" },
+  { to: "/inventory/stock", label: "Остатки" },
 ];
 
 export default function App() {
@@ -33,7 +37,10 @@ export default function App() {
           <Route path="/" element={<Navigate to="/warehouses" replace />} />
           <Route path="/warehouses" element={<WarehousesPage />} />
           <Route path="/items" element={<ItemsPage />} />
-          <Route path="/inventory" element={<InventoryPage />} />
+          <Route path="/inventory" element={<Navigate to="/inventory/inbound" replace />} />
+          <Route path="/inventory/inbound" element={<InventoryInboundPage />} />
+          <Route path="/inventory/move" element={<InventoryMovePage />} />
+          <Route path="/inventory/stock" element={<InventoryStockPage />} />
         </Routes>
       </main>
     </div>
