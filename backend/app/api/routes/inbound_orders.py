@@ -269,26 +269,36 @@ async def receive_inbound_line(
         qty=payload.qty,
     )
 
-    # persist chosen location on the line to allow completion later
-    if not line.location_id:
-        line.location_id = payload.location_id
-
-    line.received_qty += payload.qty
+    # Если пришёл другой товар — создаём отдельную строку пересорта
     if payload.item_id and payload.item_id != line.item_id:
-        line.line_status = "mis_sort"
+        mis_line = InboundOrderLine(
+            item_id=payload.item_id,
+            expected_qty=0,
+            received_qty=payload.qty,
+            location_id=payload.location_id,
+            line_status="mis_sort",
+        )
+        order.lines.append(mis_line)
         order.status = InboundStatus.mis_sort
-    elif line.received_qty > line.expected_qty:
-        line.line_status = "over_received"
-        order.status = InboundStatus.problem
-    elif payload.condition:
-        line.line_status = payload.condition
-    # update line status
-    if line.line_status in {"mis_sort", "over_received"}:
-        pass
-    elif line.received_qty == line.expected_qty:
-        line.line_status = "fully_received"
-    elif line.received_qty > 0:
-        line.line_status = "partially_received"
+    else:
+        # persist chosen location on the line to allow completion later
+        if not line.location_id:
+            line.location_id = payload.location_id
+
+        line.received_qty += payload.qty
+        if line.received_qty > line.expected_qty:
+            line.line_status = "over_received"
+            order.status = InboundStatus.problem
+        elif payload.condition:
+            line.line_status = payload.condition
+
+        # update line status
+        if line.line_status in {"mis_sort", "over_received"}:
+            pass
+        elif line.received_qty == line.expected_qty:
+            line.line_status = "fully_received"
+        elif line.received_qty > 0:
+            line.line_status = "partially_received"
 
     await session.commit()
     await session.refresh(order)
