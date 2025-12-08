@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
 from app.models.warehouse import Warehouse, Zone
-from app.schemas import ZoneCreate, ZoneRead
+from app.schemas import ZoneCreate, ZoneRead, ZoneUpdate
 
 router = APIRouter(prefix="/zones", tags=["zones"])
 
@@ -42,4 +42,38 @@ async def list_zones(
 
     result = await session.execute(stmt)
     return result.scalars().all()
+
+
+@router.patch("/{zone_id}", response_model=ZoneRead)
+async def update_zone(
+    zone_id: int, payload: ZoneUpdate, session: AsyncSession = Depends(get_session)
+):
+    zone = await session.get(Zone, zone_id)
+    if zone is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Zone not found")
+
+    if payload.warehouse_id is not None:
+        warehouse = await session.get(Warehouse, payload.warehouse_id)
+        if warehouse is None:
+            raise HTTPException(status_code=404, detail="Warehouse not found")
+        zone.warehouse_id = payload.warehouse_id
+    if payload.name is not None:
+        zone.name = payload.name
+    if payload.code is not None:
+        zone.code = payload.code
+
+    await session.commit()
+    await session.refresh(zone)
+    return zone
+
+
+@router.delete("/{zone_id}")
+async def delete_zone(zone_id: int, session: AsyncSession = Depends(get_session)):
+    zone = await session.get(Zone, zone_id)
+    if zone is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Zone not found")
+
+    await session.delete(zone)
+    await session.commit()
+    return {"status": "deleted"}
 

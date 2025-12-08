@@ -1,8 +1,8 @@
 from app.schemas.inventory import InboundCreate, InventoryRead, MoveCreate
 from app.schemas.item import ItemCreate, ItemRead
-from app.schemas.location import LocationCreate, LocationRead
-from app.schemas.warehouse import WarehouseCreate, WarehouseRead
-from app.schemas.zone import ZoneCreate, ZoneRead
+from app.schemas.location import LocationCreate, LocationRead, LocationUpdate
+from app.schemas.warehouse import WarehouseCreate, WarehouseRead, WarehouseUpdate
+from app.schemas.zone import ZoneCreate, ZoneRead, ZoneUpdate
 from app.schemas.partner import PartnerCreate, PartnerRead
 from app.schemas.inbound_order import (
     InboundOrderCreate,
@@ -30,10 +30,13 @@ __all__ = [
     "ItemRead",
     "LocationCreate",
     "LocationRead",
+    "LocationUpdate",
     "WarehouseCreate",
     "WarehouseRead",
+    "WarehouseUpdate",
     "ZoneCreate",
     "ZoneRead",
+    "ZoneUpdate",
     "PartnerCreate",
     "PartnerRead",
     "InboundOrderCreate",

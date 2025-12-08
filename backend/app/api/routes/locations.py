@@ -3,8 +3,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
-from app.models.warehouse import Location, Warehouse
-from app.schemas import LocationCreate, LocationRead
+from app.models.warehouse import Location, Warehouse, Zone
+from app.schemas import LocationCreate, LocationRead, LocationUpdate
 
 router = APIRouter(prefix="/locations", tags=["locations"])
 
@@ -48,4 +48,52 @@ async def list_locations(
 
     result = await session.execute(stmt)
     return result.scalars().all()
+
+
+@router.patch("/{location_id}", response_model=LocationRead)
+async def update_location(
+    location_id: int,
+    payload: LocationUpdate,
+    session: AsyncSession = Depends(get_session),
+):
+    location = await session.get(Location, location_id)
+    if location is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Location not found")
+
+    if payload.warehouse_id is not None:
+        warehouse = await session.get(Warehouse, payload.warehouse_id)
+        if warehouse is None:
+            raise HTTPException(status_code=404, detail="Warehouse not found")
+        location.warehouse_id = payload.warehouse_id
+
+    if payload.zone_id is not None:
+        if payload.zone_id == 0:
+            location.zone_id = None
+        else:
+            zone = await session.get(Zone, payload.zone_id)
+            if zone is None:
+                raise HTTPException(status_code=404, detail="Zone not found")
+            location.zone_id = payload.zone_id
+
+    if payload.code is not None:
+        location.code = payload.code
+    if payload.description is not None:
+        location.description = payload.description
+    if payload.is_active is not None:
+        location.is_active = payload.is_active
+
+    await session.commit()
+    await session.refresh(location)
+    return location
+
+
+@router.delete("/{location_id}")
+async def delete_location(location_id: int, session: AsyncSession = Depends(get_session)):
+    location = await session.get(Location, location_id)
+    if location is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Location not found")
+
+    location.is_active = False
+    await session.commit()
+    return {"status": "deleted"}
 

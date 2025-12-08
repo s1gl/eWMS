@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
 from app.models.warehouse import Warehouse
-from app.schemas import WarehouseCreate, WarehouseRead
+from app.schemas import WarehouseCreate, WarehouseRead, WarehouseUpdate
 
 router = APIRouter(prefix="/warehouses", tags=["warehouses"])
 
@@ -34,4 +34,49 @@ async def create_warehouse(
 async def list_warehouses(session: AsyncSession = Depends(get_session)):
     result = await session.execute(select(Warehouse))
     return result.scalars().all()
+
+
+@router.patch("/{warehouse_id}", response_model=WarehouseRead)
+async def update_warehouse(
+    warehouse_id: int,
+    payload: WarehouseUpdate,
+    session: AsyncSession = Depends(get_session),
+):
+    warehouse = await session.get(Warehouse, warehouse_id)
+    if warehouse is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Warehouse not found")
+
+    if payload.code and payload.code != warehouse.code:
+        exists = (
+            await session.execute(select(Warehouse).where(Warehouse.code == payload.code))
+        ).scalar_one_or_none()
+        if exists:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Warehouse with code '{payload.code}' already exists",
+            )
+
+    if payload.name is not None:
+        warehouse.name = payload.name
+    if payload.code is not None:
+        warehouse.code = payload.code
+    if payload.is_active is not None:
+        warehouse.is_active = payload.is_active
+
+    await session.commit()
+    await session.refresh(warehouse)
+    return warehouse
+
+
+@router.delete("/{warehouse_id}")
+async def delete_warehouse(
+    warehouse_id: int, session: AsyncSession = Depends(get_session)
+):
+    warehouse = await session.get(Warehouse, warehouse_id)
+    if warehouse is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Warehouse not found")
+
+    warehouse.is_active = False
+    await session.commit()
+    return {"status": "deleted"}
 

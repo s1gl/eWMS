@@ -11,6 +11,14 @@ class LocationCreate(BaseModel):
     description: Optional[str] = None
 
 
+class LocationUpdate(BaseModel):
+    warehouse_id: Optional[int] = None
+    zone_id: Optional[int] = None
+    code: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
 class LocationRead(ORMModel):
     id: int
     warehouse_id: int
