@@ -249,28 +249,9 @@ export default function InventoryInboundPage() {
       {order && (
         <Card title="Приёмка по строке">
           <form className="form" onSubmit={handleReceive}>
-            <FormField label="Строка поставки">
-              <select
-                value={form.line_id}
-                onChange={(e) => {
-                  const lineId = e.target.value;
-                  const ln = order.lines.find((l) => l.id === Number(lineId));
-                  setForm((prev) => ({
-                    ...prev,
-                    line_id: lineId,
-                    item_id: ln ? String(ln.item_id) : prev.item_id,
-                    location_id: ln?.location_id ? String(ln.location_id) : prev.location_id,
-                  }));
-                }}
-              >
-                <option value="">Выберите строку</option>
-                {lineOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </FormField>
+          <FormField label="Строка поставки">
+            <input value={form.line_id} readOnly />
+          </FormField>
 
             <FormField label="Товар">
               <select
