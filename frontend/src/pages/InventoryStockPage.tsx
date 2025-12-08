@@ -3,12 +3,7 @@ import { fetchInventory } from "../api/inventory";
 import { fetchWarehouses } from "../api/warehouses";
 import { fetchItems } from "../api/items";
 import { fetchLocations } from "../api/locations";
-import {
-  InventoryRecord,
-  Item,
-  Location,
-  Warehouse,
-} from "../types";
+import { InventoryRecord, Item, Location, Warehouse } from "../types";
 import Card from "../components/Card";
 import FormField from "../components/FormField";
 import Notice from "../components/Notice";
@@ -140,7 +135,7 @@ export default function InventoryStockPage() {
                 <tr key={inv.id}>
                   <td>{inv.id}</td>
                   <td>{inv.warehouse_id}</td>
-                  <td>{inv.location_id}</td>
+                  <td>{getLocationCode(inv.location_id, locations)}</td>
                   <td>{inv.item_id}</td>
                   <td>{inv.quantity}</td>
                 </tr>
@@ -163,4 +158,9 @@ export default function InventoryStockPage() {
 function toNum(value: string) {
   const n = Number(value);
   return Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
+function getLocationCode(id: number, list: Location[]) {
+  const found = list.find((l) => l.id === id);
+  return found ? found.code : id;
 }
