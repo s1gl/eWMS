@@ -1,21 +1,21 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Card from "../components/Card";
 import FormField from "../components/FormField";
 import Notice from "../components/Notice";
-import { InboundOrder, InboundOrderLine, InboundStatus } from "../types/inbound";
-import { changeInboundStatus, getInboundOrder, getInboundOrders, receiveInboundLine } from "../api/inbound";
-import { fetchLocations } from "../api/locations";
+import { getInboundOrders, getInboundOrder, receiveInboundLine, changeInboundStatus } from "../api/inbound";
 import { fetchItems } from "../api/items";
-import { Location } from "../types/location";
+import { fetchLocations } from "../api/locations";
+import { InboundOrder, InboundOrderLine, InboundStatus } from "../types/inbound";
 import { Item } from "../types";
-import { useNavigate } from "react-router-dom";
+import { Location } from "../types/location";
 
 type ReceiveForm = {
   line_id: string;
   item_id: string;
   condition: string;
-  location_id: string;
   qty: string;
+  location_id: string;
 };
 
 const statusLabels: Record<InboundStatus, string> = {
@@ -34,6 +34,11 @@ const lineStatusLabel = (status?: string | null) => {
     partially_received: "Частично принято",
     fully_received: "Принято полностью",
     cancelled: "Отменена",
+    over_received: "Принято больше, чем заявлено",
+    mis_sort: "Пересорт",
+    good: "Годен",
+    defect: "Брак",
+    quarantine: "Карантин",
   };
   return map[status] || status;
 };
@@ -43,14 +48,14 @@ export default function InventoryInboundPage() {
   const [orders, setOrders] = useState<InboundOrder[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [order, setOrder] = useState<InboundOrder | null>(null);
-  const [locations, setLocations] = useState<Location[]>([]);
   const [items, setItems] = useState<Item[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
   const [form, setForm] = useState<ReceiveForm>({
     line_id: "",
     item_id: "",
     condition: "good",
-    location_id: "",
     qty: "",
+    location_id: "",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +63,16 @@ export default function InventoryInboundPage() {
   const [problem, setProblem] = useState<boolean>(false);
 
   useEffect(() => {
-    loadOrders();
+    const load = async () => {
+      try {
+        const [list, it] = await Promise.all([getInboundOrders(), fetchItems()]);
+        setOrders(list);
+        setItems(it);
+      } catch (e: any) {
+        setError(e.message || "Не удалось загрузить поставки");
+      }
+    };
+    load();
   }, []);
 
   useEffect(() => {
@@ -74,12 +88,12 @@ export default function InventoryInboundPage() {
         const locs = await fetchLocations({ warehouse_id: ord.warehouse_id });
         setLocations(locs);
         if (ord.lines.length) {
-          const firstLine = ord.lines[0];
+          const ln = ord.lines[0];
           setForm((prev) => ({
             ...prev,
-            line_id: String(firstLine.id),
-            item_id: String(firstLine.item_id),
-            location_id: (firstLine.location_id ?? "").toString(),
+            line_id: String(ln.id),
+            item_id: String(ln.item_id),
+            location_id: ln.location_id ? String(ln.location_id) : "",
           }));
         }
       } catch (e: any) {
@@ -90,17 +104,6 @@ export default function InventoryInboundPage() {
     };
     loadOrder();
   }, [selectedId]);
-
-  const loadOrders = async () => {
-    setError(null);
-    try {
-      const [list, it] = await Promise.all([getInboundOrders(), fetchItems()]);
-      setOrders(list);
-      setItems(it);
-    } catch (e: any) {
-      setError(e.message || "Не удалось загрузить поставки");
-    }
-  };
 
   const locationsByWarehouse = useMemo(() => {
     const map = new Map<number, Location[]>();
@@ -131,26 +134,15 @@ export default function InventoryInboundPage() {
   const handleReceive = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!order) return;
-    const qty = Number(form.qty);
-    const locationId = Number(form.location_id);
     const lineId = Number(form.line_id);
     const itemId = Number(form.item_id);
-    if (!lineId) {
-      setError("Выберите строку поставки");
-      return;
-    }
-    if (!locationId) {
-      setError("Выберите ячейку склада");
-      return;
-    }
-    if (!qty || qty <= 0) {
-      setError("Количество к приёмке должно быть больше нуля");
-      return;
-    }
-    if (!itemId) {
-      setError("Выберите товар для приёмки");
-      return;
-    }
+    const qty = Number(form.qty);
+    const locationId = Number(form.location_id);
+    if (!lineId) return setError("Выберите строку поставки");
+    if (!itemId) return setError("Выберите товар для приёмки");
+    if (!locationId) return setError("Выберите ячейку склада");
+    if (!qty || qty <= 0) return setError("Количество должно быть больше нуля");
+
     setLoading(true);
     setError(null);
     setMessage(null);
@@ -158,46 +150,36 @@ export default function InventoryInboundPage() {
     try {
       const payload: any = {
         line_id: lineId,
-        location_id: locationId,
-        qty,
         item_id: itemId,
+        qty,
+        location_id: locationId,
       };
       if (form.condition) payload.condition = form.condition;
-      const updatedOrder = await receiveInboundLine(order.id, payload);
-      setOrder(updatedOrder);
-      setForm((prev) => ({ ...prev, qty: "" }));
+      const updated = await receiveInboundLine(order.id, payload);
+      setOrder(updated);
       setMessage("Приёмка по товару выполнена");
-      await completeIfReady(updatedOrder);
+      setForm((prev) => ({ ...prev, qty: "" }));
+      await completeIfReady(updated);
     } catch (e: any) {
       setProblem(true);
-      if ((e.message || "").toLowerCase().includes("exceeds")) {
-        setError("Количество к приёмке не может превышать ожидаемое по строке (статус: проблема)");
-      } else {
-        setError(e.message || "Не удалось принять строку (статус: проблема)");
-      }
+      setError(
+        e.message ||
+          "Не удалось принять строку. Возможно, количество больше ожидаемого или пересорт."
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSelectChange = (val: string) => {
-    const id = Number(val);
-    setSelectedId(Number.isFinite(id) ? id : null);
-  };
-
-  const toOrder = () => navigate("/inbound");
-
-  const activeOrders = orders.filter(
-    (o) => o.status === "in_progress" || o.status === "problem" || o.status === "mis_sort"
+  const activeOrders = orders.filter((o) =>
+    ["in_progress", "problem", "mis_sort"].includes(o.status)
   );
 
-  const currentLine: InboundOrderLine | undefined = order?.lines.find(
-    (ln) => ln.id === Number(form.line_id)
-  );
-  const lineItemsOptions = order?.lines.map((ln) => ({
-    value: ln.id,
-    label: `Строка #${ln.id} — товар ID ${ln.item_id}`,
-  })) ?? [];
+  const lineOptions =
+    order?.lines.map((ln) => ({
+      value: ln.id,
+      label: `Строка #${ln.id} — товар ID ${ln.item_id}`,
+    })) ?? [];
 
   return (
     <div className="page">
@@ -205,42 +187,41 @@ export default function InventoryInboundPage() {
       {message && <Notice tone="success">{message}</Notice>}
       {problem && (
         <Notice tone="warning">
-          Есть проблема с приёмкой. Проверьте количество и повторите.
+          Есть проблема или пересорт: проверьте количество/товар и статус поставки.
         </Notice>
       )}
 
       <Card title="Приёмка товаров">
         <p className="muted">
-          Выберите поставку и принимайте товары только в её контексте. Начать приёмку можно
-          в списке поставок. Здесь доступны только поставки со статусом «Выполняется».
+          Выберите поставку (в статусах «Выполняется», «Проблема», «Пересорт») и оформите
+          приёмку. После полного приёма поставка закроется автоматически.
         </p>
         <div className="form inline" style={{ gap: 12 }}>
           <FormField label="Поставка">
             <select
               value={selectedId ?? ""}
-              onChange={(e) => handleSelectChange(e.target.value)}
+              onChange={(e) => setSelectedId(Number(e.target.value) || null)}
             >
               <option value="">Выберите поставку</option>
               {activeOrders.map((o) => (
                 <option key={o.id} value={o.id}>
-                  № {o.id} — {o.external_number || "без номера"} ({statusLabels[o.status] || o.status})
+                  №{o.id} — {o.external_number || "без номера"} ({statusLabels[o.status]})
                 </option>
               ))}
             </select>
           </FormField>
-          <button type="button" className="ghost" onClick={toOrder}>
+          <button type="button" className="ghost" onClick={() => navigate("/inbound")}>
             Открыть список поставок
           </button>
         </div>
       </Card>
 
       {order && (
-      <Card title="Данные поставки">
-        <div className="grid two" style={{ marginBottom: 12 }}>
-          <div>
-            <p>
-                <strong>Номер поставки:</strong>{" "}
-                {order.external_number || `№${order.id}`}
+        <Card title="Данные поставки">
+          <div className="grid two" style={{ marginBottom: 12 }}>
+            <div>
+              <p>
+                <strong>Номер поставки:</strong> {order.external_number || `№${order.id}`}
               </p>
               <p>
                 <strong>Склад:</strong> {order.warehouse_id}
@@ -248,28 +229,20 @@ export default function InventoryInboundPage() {
             </div>
             <div>
               <p>
-                <strong>Статус:</strong>{" "}
-                {problem ? "Проблема" : statusLabels[order.status] || order.status}
+                <strong>Статус:</strong> {statusLabels[order.status] || order.status}
               </p>
               <p>
-                <strong>Создана / обновлена:</strong>{" "}
-                {order.created_at || "—"} / {order.updated_at || "—"}
+                <strong>Создана / обновлена:</strong> {order.created_at || "—"} /{" "}
+                {order.updated_at || "—"}
               </p>
             </div>
           </div>
-          <div className="actions-row" style={{ gap: 8 }}>
-            {order.status === "in_progress" && (
-              <Notice tone="info">Приёмка открыта. Примите товары по строкам ниже.</Notice>
-            )}
-            {order.status === "completed" && (
-              <Notice tone="success">Поставка полностью принята.</Notice>
-            )}
-            {order.status === "draft" && (
-              <Notice tone="warning">
-                Запустите приёмку из списка поставок, чтобы обработать строки здесь.
-              </Notice>
-            )}
-          </div>
+          {order.status === "in_progress" && (
+            <Notice tone="info">Приёмка открыта. Примите товары по строкам.</Notice>
+          )}
+          {order.status === "completed" && (
+            <Notice tone="success">Поставка полностью принята.</Notice>
+          )}
         </Card>
       )}
 
@@ -291,7 +264,7 @@ export default function InventoryInboundPage() {
                 }}
               >
                 <option value="">Выберите строку</option>
-                {lineItemsOptions.map((opt) => (
+                {lineOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>
                     {opt.label}
                   </option>
@@ -364,11 +337,10 @@ export default function InventoryInboundPage() {
               <thead>
                 <tr>
                   <th>Товар</th>
-                  <th>Ожидаемое количество</th>
-                  <th>Принятое количество</th>
+                  <th>Заявлено</th>
+                  <th>Принято</th>
                   <th>Статус строки</th>
                   <th>Ячейка</th>
-                  {order.status === "in_progress" && <th>Действия</th>}
                 </tr>
               </thead>
               <tbody>
@@ -377,7 +349,6 @@ export default function InventoryInboundPage() {
                   const loc = locationsByWarehouse.get(order.warehouse_id)?.find(
                     (l) => l.id === line.location_id
                   );
-                  const formState = forms[line.id] || { qty: "", location_id: "" };
                   return (
                     <tr key={line.id}>
                       <td>{item ? `${item.name} (${item.sku})` : `ID ${line.item_id}`}</td>
@@ -385,59 +356,12 @@ export default function InventoryInboundPage() {
                       <td>{line.received_qty}</td>
                       <td>{lineStatusLabel(line.line_status)}</td>
                       <td>{loc ? loc.code : line.location_id ?? "—"}</td>
-                      {order.status === "in_progress" && (
-                        <td>
-                          <form onSubmit={(e) => handleReceive(line, e)} className="form inline">
-                            <FormField label="Ячейка хранения">
-                              <select
-                                value={formState.location_id}
-                                onChange={(e) =>
-                                  setForms((prev) => ({
-                                    ...prev,
-                                    [line.id]: { ...prev[line.id], location_id: e.target.value },
-                                  }))
-                                }
-                              >
-                                <option value="">
-                                  Выберите ячейку, куда положите товар
-                                </option>
-                                {(locationsByWarehouse.get(order.warehouse_id) || []).map((l) => (
-                                  <option key={l.id} value={l.id}>
-                                    {l.code}
-                                  </option>
-                                ))}
-                              </select>
-                            </FormField>
-                            <FormField
-                              label="Количество к приёмке"
-                              helper="Не больше ожидаемого по строке"
-                            >
-                              <input
-                                type="number"
-                                min={1}
-                                value={formState.qty}
-                                onChange={(e) =>
-                                  setForms((prev) => ({
-                                    ...prev,
-                                    [line.id]: { ...prev[line.id], qty: e.target.value },
-                                  }))
-                                }
-                                placeholder="Введите количество"
-                                style={{ width: 120 }}
-                              />
-                            </FormField>
-                            <button type="submit" disabled={loading}>
-                              {loading ? "Обработка..." : "Принять товар"}
-                            </button>
-                          </form>
-                        </td>
-                      )}
                     </tr>
                   );
                 })}
                 {!order.lines.length && (
                   <tr>
-                    <td colSpan={order.status === "in_progress" ? 6 : 5} style={{ textAlign: "center" }}>
+                    <td colSpan={5} style={{ textAlign: "center" }}>
                       В поставке нет строк
                     </td>
                   </tr>
