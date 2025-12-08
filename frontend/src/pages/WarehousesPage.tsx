@@ -1,5 +1,10 @@
 import { FormEvent, useEffect, useState } from "react";
-import { createWarehouse, fetchWarehouses } from "../api/warehouses";
+import {
+  createWarehouse,
+  deleteWarehouse,
+  fetchWarehouses,
+  updateWarehouse,
+} from "../api/warehouses";
 import { Warehouse } from "../types";
 import Card from "../components/Card";
 import FormField from "../components/FormField";
@@ -9,6 +14,7 @@ export default function WarehousesPage() {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
+  const [editId, setEditId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -37,13 +43,43 @@ export default function WarehousesPage() {
     setError(null);
     setMessage(null);
     try {
-      await createWarehouse({ name: name.trim(), code: code.trim() });
-      setMessage("Склад создан");
+      if (editId) {
+        await updateWarehouse(editId, { name: name.trim(), code: code.trim() });
+        setMessage("Склад обновлён");
+      } else {
+        await createWarehouse({ name: name.trim(), code: code.trim() });
+        setMessage("Склад создан");
+      }
       setName("");
       setCode("");
+      setEditId(null);
       await load();
     } catch (err: any) {
-      setError(err.message || "Ошибка создания склада");
+      setError(err.message || "Ошибка сохранения склада");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEdit = (wh: Warehouse) => {
+    setEditId(wh.id);
+    setName(wh.name);
+    setCode(wh.code);
+    setMessage(null);
+    setError(null);
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm("Удалить склад?")) return;
+    setLoading(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await deleteWarehouse(id);
+      setMessage("Склад удалён (деактивирован)");
+      await load();
+    } catch (e: any) {
+      setError(e.message || "Ошибка удаления");
     } finally {
       setLoading(false);
     }
@@ -71,9 +107,24 @@ export default function WarehousesPage() {
               required
             />
           </FormField>
-          <button type="submit" disabled={loading}>
-            {loading ? "Сохраняю..." : "Создать склад"}
-          </button>
+          <div className="actions-row">
+            <button type="submit" disabled={loading}>
+              {loading ? "Сохраняю..." : editId ? "Сохранить" : "Создать склад"}
+            </button>
+            {editId && (
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => {
+                  setEditId(null);
+                  setName("");
+                  setCode("");
+                }}
+              >
+                Отмена
+              </button>
+            )}
+          </div>
         </form>
         <div className="table-wrapper">
           <table>
@@ -83,6 +134,7 @@ export default function WarehousesPage() {
                 <th>Название</th>
                 <th>Код</th>
                 <th>Активен</th>
+                <th />
               </tr>
             </thead>
             <tbody>
@@ -92,11 +144,28 @@ export default function WarehousesPage() {
                   <td>{w.name}</td>
                   <td>{w.code}</td>
                   <td>{w.is_active ? "Да" : "Нет"}</td>
+                  <td style={{ textAlign: "right" }}>
+                    <button
+                      type="button"
+                      className="ghost"
+                      onClick={() => handleEdit(w)}
+                      style={{ marginRight: 6 }}
+                    >
+                      Редактировать
+                    </button>
+                    <button
+                      type="button"
+                      className="ghost"
+                      onClick={() => handleDelete(w.id)}
+                    >
+                      Удалить
+                    </button>
+                  </td>
                 </tr>
               ))}
               {warehouses.length === 0 && (
                 <tr>
-                  <td colSpan={4} style={{ textAlign: "center" }}>
+                  <td colSpan={5} style={{ textAlign: "center" }}>
                     Нет складов
                   </td>
                 </tr>

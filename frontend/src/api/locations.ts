@@ -19,3 +19,12 @@ export const createLocation = (payload: LocationCreate) =>
     method: "POST",
     body: JSON.stringify(payload),
   });
+
+export const updateLocation = (id: number, payload: Partial<LocationCreate> & { is_active?: boolean }) =>
+  request<Location>(`/locations/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+
+export const deleteLocation = (id: number) =>
+  request<{ status: string }>(`/locations/${id}`, { method: "DELETE" });

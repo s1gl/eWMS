@@ -8,3 +8,12 @@ export const createZone = (payload: ZoneCreate) =>
     method: "POST",
     body: JSON.stringify(payload),
   });
+
+export const updateZone = (id: number, payload: Partial<ZoneCreate>) =>
+  request<Zone>(`/zones/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+
+export const deleteZone = (id: number) =>
+  request<{ status: string }>(`/zones/${id}`, { method: "DELETE" });

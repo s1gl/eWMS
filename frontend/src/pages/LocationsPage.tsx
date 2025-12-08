@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { fetchWarehouses } from "../api/warehouses";
-import { createLocation, fetchLocations } from "../api/locations";
+import { createLocation, fetchLocations, deleteLocation, updateLocation } from "../api/locations";
 import { fetchZones } from "../api/zones";
 import { Location, Warehouse, Zone } from "../types";
 import Card from "../components/Card";
@@ -15,6 +15,7 @@ export default function LocationsPage() {
   const [zoneId, setZoneId] = useState("");
   const [code, setCode] = useState("");
   const [description, setDescription] = useState("");
+  const [editId, setEditId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -49,20 +50,58 @@ export default function LocationsPage() {
     setError(null);
     setMessage(null);
     try {
-      await createLocation({
-        warehouse_id: wId,
-        zone_id: zId,
-        code: code.trim(),
-        description: description.trim() || undefined,
-      });
-      setMessage("Ячейка создана");
+      if (editId) {
+        await updateLocation(editId, {
+          warehouse_id: wId,
+          zone_id: zId ?? null,
+          code: code.trim(),
+          description: description.trim() || undefined,
+        });
+        setMessage("Ячейка обновлена");
+      } else {
+        await createLocation({
+          warehouse_id: wId,
+          zone_id: zId,
+          code: code.trim(),
+          description: description.trim() || undefined,
+        });
+        setMessage("Ячейка создана");
+      }
       setCode("");
       setZoneId("");
       setDescription("");
+      setEditId(null);
       const locs = await fetchLocations();
       setLocations(locs);
     } catch (err: any) {
-      setError(err.message || "Ошибка создания ячейки");
+      setError(err.message || "Ошибка сохранения ячейки");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEdit = (loc: Location) => {
+    setEditId(loc.id);
+    setWarehouseId(String(loc.warehouse_id));
+    setZoneId(loc.zone_id ? String(loc.zone_id) : "");
+    setCode(loc.code);
+    setDescription(loc.description || "");
+    setMessage(null);
+    setError(null);
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm("Удалить (деактивировать) ячейку?")) return;
+    setLoading(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await deleteLocation(id);
+      setMessage("Ячейка удалена (деактивирована)");
+      const locs = await fetchLocations();
+      setLocations(locs);
+    } catch (e: any) {
+      setError(e.message || "Ошибка удаления");
     } finally {
       setLoading(false);
     }
@@ -117,9 +156,26 @@ export default function LocationsPage() {
               placeholder="Опционально"
             />
           </FormField>
-          <button type="submit" disabled={loading}>
-            {loading ? "Сохраняю..." : "Создать ячейку"}
-          </button>
+          <div className="actions-row">
+            <button type="submit" disabled={loading}>
+              {loading ? "Сохраняю..." : editId ? "Сохранить" : "Создать ячейку"}
+            </button>
+            {editId && (
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => {
+                  setEditId(null);
+                  setWarehouseId("");
+                  setZoneId("");
+                  setCode("");
+                  setDescription("");
+                }}
+              >
+                Отмена
+              </button>
+            )}
+          </div>
         </form>
 
         <div className="table-wrapper">
@@ -132,6 +188,7 @@ export default function LocationsPage() {
                 <th>Код</th>
                 <th>Описание</th>
                 <th>Активна</th>
+                <th />
               </tr>
             </thead>
             <tbody>
@@ -143,11 +200,28 @@ export default function LocationsPage() {
                   <td>{loc.code}</td>
                   <td>{loc.description || "—"}</td>
                   <td>{loc.is_active ? "Да" : "Нет"}</td>
+                  <td style={{ textAlign: "right" }}>
+                    <button
+                      type="button"
+                      className="ghost"
+                      onClick={() => handleEdit(loc)}
+                      style={{ marginRight: 6 }}
+                    >
+                      Редактировать
+                    </button>
+                    <button
+                      type="button"
+                      className="ghost"
+                      onClick={() => handleDelete(loc.id)}
+                    >
+                      Удалить
+                    </button>
+                  </td>
                 </tr>
               ))}
               {locations.length === 0 && (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: "center" }}>
+                  <td colSpan={7} style={{ textAlign: "center" }}>
                     Нет ячеек
                   </td>
                 </tr>
