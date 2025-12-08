@@ -165,3 +165,17 @@ MIT License
 3. Frontend: http://localhost:5173
 
 Фронтенд обращается к API по `http://localhost:8000` (CORS включён в FastAPI).
+
+## Работа с БД и pgAdmin
+- Поднять сервисы: `docker compose up -d`
+- pgAdmin: http://localhost:5050 (логин/пароль: `admin@ewms.ru` / `admin`)
+- Настройка сервера внутри pgAdmin:
+  - Host: `db` (имя сервиса из docker-compose)
+  - Port: `5432`
+  - Maintenance DB: `wms`
+  - User: `wms`
+  - Password: `wms_password`
+- Бэкап БД (создаст файл `backups/wms_backup_YYYYMMDD.sql`): `./scripts/db_backup_restore.sh backup`
+- Восстановление БД (перезапишет данные): `./scripts/db_backup_restore.sh restore backups/имя_файла.sql`
+
+Подробнее см. `docs/pgadmin.md`.
