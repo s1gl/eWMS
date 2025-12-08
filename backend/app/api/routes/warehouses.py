@@ -76,7 +76,7 @@ async def delete_warehouse(
     if warehouse is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Warehouse not found")
 
-    warehouse.is_active = False
+    await session.delete(warehouse)
     await session.commit()
     return {"status": "deleted"}
 
