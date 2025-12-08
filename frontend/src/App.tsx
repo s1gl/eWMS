@@ -6,6 +6,7 @@ import LocationsPage from "./pages/LocationsPage";
 import InventoryInboundPage from "./pages/InventoryInboundPage";
 import InventoryMovePage from "./pages/InventoryMovePage";
 import InventoryStockPage from "./pages/InventoryStockPage";
+import WarehouseSetupWizard from "./pages/warehouse/WarehouseSetupWizard";
 
 const navLinks = [
   { to: "/warehouses", label: "Склады" },
@@ -15,6 +16,7 @@ const navLinks = [
   { to: "/inventory/inbound", label: "Приёмка" },
   { to: "/inventory/move", label: "Перемещение" },
   { to: "/inventory/stock", label: "Остатки" },
+  { to: "/setup-wizard", label: "Мастер склада" },
 ];
 
 export default function App() {
@@ -47,6 +49,7 @@ export default function App() {
           <Route path="/inventory/inbound" element={<InventoryInboundPage />} />
           <Route path="/inventory/move" element={<InventoryMovePage />} />
           <Route path="/inventory/stock" element={<InventoryStockPage />} />
+          <Route path="/setup-wizard" element={<WarehouseSetupWizard />} />
         </Routes>
       </main>
     </div>

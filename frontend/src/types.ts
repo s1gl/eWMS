@@ -23,6 +23,12 @@ export type ZoneCreate = {
   warehouse_id: number;
 };
 
+export type ZoneUpdate = {
+  name?: string;
+  code?: string;
+  warehouse_id?: number;
+};
+
 export type Location = {
   id: number;
   warehouse_id: number;
@@ -37,6 +43,10 @@ export type LocationCreate = {
   code: string;
   zone_id?: number | null;
   description?: string | null;
+};
+
+export type LocationUpdate = Partial<LocationCreate> & {
+  is_active?: boolean;
 };
 
 export type Item = {

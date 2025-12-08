@@ -1,7 +1,10 @@
 import { request } from "./client";
-import { Zone, ZoneCreate } from "../types";
+import { Zone, ZoneCreate, ZoneUpdate } from "../types";
 
-export const fetchZones = () => request<Zone[]>("/zones");
+export const fetchZones = (warehouse_id?: number) => {
+  const q = warehouse_id ? `?warehouse_id=${warehouse_id}` : "";
+  return request<Zone[]>(`/zones${q}`);
+};
 
 export const createZone = (payload: ZoneCreate) =>
   request<Zone>("/zones", {
@@ -9,7 +12,7 @@ export const createZone = (payload: ZoneCreate) =>
     body: JSON.stringify(payload),
   });
 
-export const updateZone = (id: number, payload: Partial<ZoneCreate>) =>
+export const updateZone = (id: number, payload: ZoneUpdate) =>
   request<Zone>(`/zones/${id}`, {
     method: "PATCH",
     body: JSON.stringify(payload),
