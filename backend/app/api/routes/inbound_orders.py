@@ -254,6 +254,10 @@ async def receive_inbound_line(
         qty=payload.qty,
     )
 
+    # persist chosen location on the line to allow completion later
+    if not line.location_id:
+        line.location_id = payload.location_id
+
     line.received_qty += payload.qty
     # update line status
     if line.received_qty == line.expected_qty:
