@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Card from "../components/Card";
 import FormField from "../components/FormField";
 import Notice from "../components/Notice";
-import { getInboundOrders, getInboundOrder, receiveInboundLine, changeInboundStatus } from "../api/inbound";
+import { getInboundOrders, getInboundOrder, receiveInboundLine } from "../api/inbound";
 import { fetchItems } from "../api/items";
 import { fetchLocations } from "../api/locations";
 import { InboundOrder, InboundOrderLine, InboundStatus } from "../types/inbound";
@@ -115,22 +115,6 @@ export default function InventoryInboundPage() {
     return map;
   }, [locations]);
 
-  const completeIfReady = async (updated: InboundOrder) => {
-    const allReceived = updated.lines.every(
-      (ln) => ln.expected_qty > 0 && ln.received_qty >= ln.expected_qty
-    );
-    if (allReceived && updated.status === "in_progress") {
-      try {
-        await changeInboundStatus(updated.id, { status: "completed" });
-        const refreshed = await getInboundOrder(updated.id);
-        setOrder(refreshed);
-        setMessage("Все товары приняты, поставка закрыта");
-      } catch (e: any) {
-        setError(e.message || "Не удалось закрыть поставку");
-      }
-    }
-  };
-
   const handleReceive = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!order) return;
@@ -159,7 +143,6 @@ export default function InventoryInboundPage() {
       setOrder(updated);
       setMessage("Приёмка по товару выполнена");
       setForm((prev) => ({ ...prev, qty: "" }));
-      await completeIfReady(updated);
     } catch (e: any) {
       setProblem(true);
       setError(
