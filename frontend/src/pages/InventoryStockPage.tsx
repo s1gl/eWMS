@@ -3,7 +3,8 @@ import { fetchInventory } from "../api/inventory";
 import { fetchWarehouses } from "../api/warehouses";
 import { fetchItems } from "../api/items";
 import { fetchLocations } from "../api/locations";
-import { InventoryRecord, Item, Location, Warehouse } from "../types";
+import { fetchZones } from "../api/zones";
+import { InventoryRecord, Item, Location, Warehouse, Zone } from "../types";
 import Card from "../components/Card";
 import FormField from "../components/FormField";
 import Notice from "../components/Notice";
@@ -12,6 +13,7 @@ export default function InventoryStockPage() {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [zones, setZones] = useState<Zone[]>([]);
   const [inventory, setInventory] = useState<InventoryRecord[]>([]);
 
   const [filters, setFilters] = useState({
@@ -27,16 +29,18 @@ export default function InventoryStockPage() {
     const load = async () => {
       setLoading(true);
       try {
-        const [wh, it, loc, inv] = await Promise.all([
+        const [wh, it, loc, inv, zs] = await Promise.all([
           fetchWarehouses(),
           fetchItems(),
           fetchLocations(),
           fetchInventory(),
+          fetchZones(),
         ]);
         setWarehouses(wh);
         setItems(it);
         setLocations(loc);
         setInventory(inv);
+        setZones(zs);
       } catch (e: any) {
         setError(e.message || "Не удалось загрузить данные");
       } finally {
@@ -125,6 +129,7 @@ export default function InventoryStockPage() {
               <tr>
                 <th>ID</th>
                 <th>Склад</th>
+                <th>Зона</th>
                 <th>Ячейка</th>
                 <th>SKU</th>
                 <th>Товар</th>
@@ -139,6 +144,7 @@ export default function InventoryStockPage() {
                   <tr key={inv.id}>
                     <td>{inv.id}</td>
                     <td>{getWarehouseCode(inv.warehouse_id, warehouses)}</td>
+                    <td>{getZoneCode(inv.location_id, locations, zones)}</td>
                     <td>{getLocationCode(inv.location_id, locations)}</td>
                     <td>{item?.sku ?? "—"}</td>
                     <td>{item?.name ?? "—"}</td>
@@ -175,6 +181,13 @@ function getLocationCode(id: number, list: Location[]) {
 function getWarehouseCode(id: number, list: Warehouse[]) {
   const found = list.find((w) => w.id === id);
   return found ? found.code : id;
+}
+
+function getZoneCode(locationId: number, locs: Location[], zones: Zone[]) {
+  const loc = locs.find((l) => l.id === locationId);
+  if (!loc || !loc.zone_id) return "—";
+  const z = zones.find((zone) => zone.id === loc.zone_id);
+  return z ? z.code : loc.zone_id;
 }
 
 function getItemInfo(id: number, list: Item[]) {
