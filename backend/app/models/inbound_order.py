@@ -18,6 +18,8 @@ class InboundStatus(str, enum.Enum):
     in_progress = "in_progress"
     completed = "completed"
     cancelled = "cancelled"
+    problem = "problem"
+    mis_sort = "mis_sort"
 
 
 class InboundOrder(Base):

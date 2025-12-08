@@ -1,4 +1,10 @@
-export type InboundStatus = "draft" | "in_progress" | "completed" | "cancelled";
+export type InboundStatus =
+  | "draft"
+  | "in_progress"
+  | "completed"
+  | "cancelled"
+  | "problem"
+  | "mis_sort";
 
 export type InboundOrderLine = {
   id: number;

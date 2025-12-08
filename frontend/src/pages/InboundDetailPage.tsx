@@ -19,6 +19,8 @@ const statusLabels: Record<InboundStatus, string> = {
   in_progress: "В приёмке",
   completed: "Завершена",
   cancelled: "Отменена",
+  problem: "Проблема",
+  mis_sort: "Пересорт",
 };
 
 const lineStatusLabel = (status?: string | null) => {
@@ -28,6 +30,8 @@ const lineStatusLabel = (status?: string | null) => {
     partially_received: "Частично принято",
     fully_received: "Принято полностью",
     cancelled: "Отменена",
+    over_received: "Принято больше, чем заявлено",
+    mis_sort: "Пересорт",
   };
   return map[status] || status;
 };

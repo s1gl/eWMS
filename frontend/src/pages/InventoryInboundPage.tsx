@@ -17,6 +17,8 @@ const statusLabels: Record<InboundStatus, string> = {
   in_progress: "Выполняется",
   completed: "Принято",
   cancelled: "Отменена",
+  problem: "Проблема",
+  mis_sort: "Пересорт",
 };
 
 const lineStatusLabel = (status?: string | null) => {
@@ -161,7 +163,9 @@ export default function InventoryInboundPage() {
 
   const toOrder = () => navigate("/inbound");
 
-  const activeOrders = orders.filter((o) => o.status === "in_progress");
+  const activeOrders = orders.filter(
+    (o) => o.status === "in_progress" || o.status === "problem" || o.status === "mis_sort"
+  );
 
   return (
     <div className="page">

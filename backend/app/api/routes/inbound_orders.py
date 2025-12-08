@@ -150,7 +150,14 @@ async def update_inbound_status(
 
     transitions = {
         InboundStatus.draft: {InboundStatus.in_progress, InboundStatus.cancelled},
-        InboundStatus.in_progress: {InboundStatus.completed, InboundStatus.cancelled},
+        InboundStatus.in_progress: {
+            InboundStatus.completed,
+            InboundStatus.cancelled,
+            InboundStatus.problem,
+            InboundStatus.mis_sort,
+        },
+        InboundStatus.problem: {InboundStatus.completed, InboundStatus.cancelled},
+        InboundStatus.mis_sort: {InboundStatus.completed, InboundStatus.cancelled},
         InboundStatus.completed: set(),
         InboundStatus.cancelled: set(),
     }
@@ -235,8 +242,7 @@ async def receive_inbound_line(
     if line is None:
         raise HTTPException(status_code=404, detail="Line not found in this order")
 
-    if line.received_qty + payload.qty > line.expected_qty:
-        raise HTTPException(status_code=400, detail="Received quantity exceeds expected")
+    actual_item_id = payload.item_id or line.item_id
 
     # validate location belongs to warehouse
     location = await session.get(Location, payload.location_id)
@@ -245,12 +251,17 @@ async def receive_inbound_line(
     if location.warehouse_id != order.warehouse_id:
         raise HTTPException(status_code=400, detail="Location not in order warehouse")
 
+    # validate item exists
+    item = await session.get(Item, actual_item_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Item not found")
+
     # increment inventory
     await increment_inventory(
         session,
         warehouse_id=order.warehouse_id,
         location_id=payload.location_id,
-        item_id=line.item_id,
+        item_id=actual_item_id,
         qty=payload.qty,
     )
 
@@ -259,8 +270,16 @@ async def receive_inbound_line(
         line.location_id = payload.location_id
 
     line.received_qty += payload.qty
+    if payload.item_id and payload.item_id != line.item_id:
+        line.line_status = "mis_sort"
+        order.status = InboundStatus.mis_sort
+    elif line.received_qty > line.expected_qty:
+        line.line_status = "over_received"
+        order.status = InboundStatus.problem
     # update line status
-    if line.received_qty == line.expected_qty:
+    if line.line_status in {"mis_sort", "over_received"}:
+        pass
+    elif line.received_qty == line.expected_qty:
         line.line_status = "fully_received"
     elif line.received_qty > 0:
         line.line_status = "partially_received"

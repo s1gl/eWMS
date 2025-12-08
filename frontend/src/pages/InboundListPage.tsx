@@ -12,6 +12,8 @@ const statusLabels: Record<InboundStatus, string> = {
   in_progress: "В приёмке",
   completed: "Завершена",
   cancelled: "Отменена",
+  problem: "Проблема",
+  mis_sort: "Пересорт",
 };
 
 export default function InboundListPage() {
