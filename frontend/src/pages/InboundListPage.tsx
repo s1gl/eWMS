@@ -88,7 +88,7 @@ export default function InboundListPage() {
           <table>
             <thead>
               <tr>
-                <th style={{ width: 140 }}>Действие</th>
+                <th style={{ width: 160 }}>Действие</th>
                 <th>Номер поставки</th>
                 <th>Внешний номер</th>
                 <th>Склад</th>
@@ -115,7 +115,7 @@ export default function InboundListPage() {
                       }}
                       disabled={o.status !== "draft" || loading}
                     >
-                      {o.status === "draft" ? "Начать приёмку" : "В работе"}
+                      "Начать приёмку"
                     </button>
                   </td>
                   <td>
@@ -129,7 +129,7 @@ export default function InboundListPage() {
                   <td>{o.created_at || "—"}</td>
                   <td>{o.updated_at || "—"}</td>
                   <td style={{ textAlign: "right" }}>
-                    {o.status === "draft" ? (
+                    {o.status === "draft" && (
                       <button
                         type="button"
                         onClick={(e) => {
@@ -149,19 +149,18 @@ export default function InboundListPage() {
                       >
                         ✕
                       </button>
-                    ) : (
+                    )}
+                    {o.status === "in_progress" && (
                       <button
                         type="button"
                         className="ghost"
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (o.status !== "completed") {
-                            updateStatus(o, "completed");
-                          }
+                          updateStatus(o, "completed");
                         }}
-                        disabled={o.status === "completed" || loading}
+                        disabled={loading}
                       >
-                        {o.status === "completed" ? "Приёмка завершена" : "Завершить приёмку"}
+                        Завершить приёмку
                       </button>
                     )}
                   </td>
