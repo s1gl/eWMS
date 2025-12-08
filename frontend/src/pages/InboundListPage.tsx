@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { getInboundOrders } from "../api/inbound";
 import { fetchWarehouses } from "../api/warehouses";
 import { InboundOrder, InboundStatus } from "../types/inbound";
@@ -19,6 +19,7 @@ export default function InboundListPage() {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const load = async () => {
@@ -72,9 +73,15 @@ export default function InboundListPage() {
             </thead>
             <tbody>
               {orders.map((o) => (
-                <tr key={o.id}>
+                <tr
+                  key={o.id}
+                  onClick={() => navigate(`/inbound/${o.id}`)}
+                  style={{ cursor: "pointer" }}
+                >
                   <td>
-                    <Link to={`/inbound/${o.id}`}>№ {o.id}</Link>
+                    <Link to={`/inbound/${o.id}`} onClick={(e) => e.stopPropagation()}>
+                      № {o.id}
+                    </Link>
                   </td>
                   <td>{o.external_number || "—"}</td>
                   <td>{warehouseName(o.warehouse_id)}</td>
