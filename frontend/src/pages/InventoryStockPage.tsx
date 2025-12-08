@@ -126,23 +126,30 @@ export default function InventoryStockPage() {
                 <th>ID</th>
                 <th>Склад</th>
                 <th>Ячейка</th>
+                <th>SKU</th>
                 <th>Товар</th>
+                <th>Ед. изм.</th>
                 <th>Количество</th>
               </tr>
             </thead>
             <tbody>
-              {inventory.map((inv) => (
-                <tr key={inv.id}>
-                  <td>{inv.id}</td>
-                  <td>{inv.warehouse_id}</td>
-                  <td>{getLocationCode(inv.location_id, locations)}</td>
-                  <td>{inv.item_id}</td>
-                  <td>{inv.quantity}</td>
-                </tr>
-              ))}
+              {inventory.map((inv) => {
+                const item = getItemInfo(inv.item_id, items);
+                return (
+                  <tr key={inv.id}>
+                    <td>{inv.id}</td>
+                    <td>{inv.warehouse_id}</td>
+                    <td>{getLocationCode(inv.location_id, locations)}</td>
+                    <td>{item?.sku ?? "—"}</td>
+                    <td>{item?.name ?? "—"}</td>
+                    <td>{item?.unit ?? "—"}</td>
+                    <td>{inv.quantity}</td>
+                  </tr>
+                );
+              })}
               {inventory.length === 0 && (
                 <tr>
-                  <td colSpan={5} style={{ textAlign: "center" }}>
+                  <td colSpan={7} style={{ textAlign: "center" }}>
                     Остатков нет
                   </td>
                 </tr>
@@ -163,4 +170,8 @@ function toNum(value: string) {
 function getLocationCode(id: number, list: Location[]) {
   const found = list.find((l) => l.id === id);
   return found ? found.code : id;
+}
+
+function getItemInfo(id: number, list: Item[]) {
+  return list.find((i) => i.id === id);
 }
