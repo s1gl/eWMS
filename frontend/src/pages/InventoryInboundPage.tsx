@@ -25,6 +25,7 @@ export default function InventoryInboundPage() {
     location_id: "",
     item_id: "",
     qty: "",
+    unit: "pcs",
   });
 
   const [message, setMessage] = useState<string | null>(null);
@@ -153,6 +154,17 @@ export default function InventoryInboundPage() {
               required
             />
           </FormField>
+          <FormField label="Ед. изм.">
+            <select
+              value={form.unit}
+              onChange={(e) => setForm((p) => ({ ...p, unit: e.target.value }))}
+            >
+              <option value="pcs">pcs</option>
+              <option value="kg">kg</option>
+              <option value="l">l</option>
+              <option value="box">box</option>
+            </select>
+          </FormField>
           <button type="submit" disabled={loading}>
             {loading ? "Выполняю..." : "Приход"}
           </button>
@@ -176,11 +188,12 @@ function buildPayload(form: {
   location_id: string;
   item_id: string;
   qty: string;
+  unit: string;
 }): InboundPayload | null {
   const warehouse_id = Number(form.warehouse_id);
   const location_id = Number(form.location_id);
   const item_id = Number(form.item_id);
   const qty = Number(form.qty);
   if (!warehouse_id || !location_id || !item_id || !qty) return null;
-  return { warehouse_id, location_id, item_id, qty };
+  return { warehouse_id, location_id, item_id, qty, unit: form.unit || "pcs" };
 }

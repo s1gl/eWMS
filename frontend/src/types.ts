@@ -68,6 +68,7 @@ export type InboundPayload = {
   location_id: number;
   item_id: number;
   qty: number;
+  unit?: string;
 };
 
 export type MovePayload = {
