@@ -9,7 +9,7 @@ import Notice from "../components/Notice";
 
 const statusLabels: Record<InboundStatus, string> = {
   draft: "Черновик",
-  in_progress: "В процессе",
+  in_progress: "В приёмке",
   completed: "Завершена",
   cancelled: "Отменена",
 };
@@ -45,34 +45,38 @@ export default function InboundListPage() {
   return (
     <div className="page">
       <Card
-        title="Поставки"
+        title="Поставки на склад"
         actions={
           <Link className="ghost" to="/inbound/new">
             Создать поставку
           </Link>
         }
       >
+        <p className="muted">
+          Здесь вы видите список всех поставок и их статус. Отсюда можно создать новую
+          поставку и открыть приёмку по любой строке.
+        </p>
         {error && <Notice tone="error">{error}</Notice>}
         {loading && <Notice tone="info">Загрузка...</Notice>}
         <div className="table-wrapper">
           <table>
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Номер</th>
+                <th>Номер поставки</th>
+                <th>Внешний номер</th>
                 <th>Склад</th>
                 <th>Статус</th>
-                <th>Создана</th>
-                <th>Обновлена</th>
+                <th>Дата создания</th>
+                <th>Дата обновления</th>
               </tr>
             </thead>
             <tbody>
               {orders.map((o) => (
                 <tr key={o.id}>
                   <td>
-                    <Link to={`/inbound/${o.id}`}>#{o.id}</Link>
+                    <Link to={`/inbound/${o.id}`}>№ {o.id}</Link>
                   </td>
-                  <td>{o.external_number}</td>
+                  <td>{o.external_number || "—"}</td>
                   <td>{warehouseName(o.warehouse_id)}</td>
                   <td>{statusLabels[o.status] || o.status}</td>
                   <td>{o.created_at || "—"}</td>
@@ -82,7 +86,7 @@ export default function InboundListPage() {
               {orders.length === 0 && (
                 <tr>
                   <td colSpan={6} style={{ textAlign: "center" }}>
-                    Нет поставок
+                    Пока нет созданных поставок
                   </td>
                 </tr>
               )}

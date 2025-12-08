@@ -48,8 +48,8 @@ export default function InboundCreatePage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!warehouseId || !externalNumber.trim()) {
-      setError("Укажите склад и номер поставки");
+    if (!warehouseId) {
+      setError("Выберите склад для приёмки");
       return;
     }
     const preparedLines = lines
@@ -59,7 +59,11 @@ export default function InboundCreatePage() {
         expected_qty: Number(l.expected_qty),
       }));
     if (preparedLines.length === 0) {
-      setError("Добавьте хотя бы одну строку");
+      setError("Добавьте хотя бы один товар");
+      return;
+    }
+    if (preparedLines.some((l) => l.expected_qty <= 0)) {
+      setError("Количество должно быть больше нуля");
       return;
     }
     const payload: InboundOrderCreate = {
@@ -81,7 +85,11 @@ export default function InboundCreatePage() {
 
   return (
     <div className="page">
-      <Card title="Создание поставки">
+      <Card title="Новая поставка">
+        <p className="muted">
+          Выберите склад, при необходимости укажите номер поставки от клиента и добавьте
+          товары, которые планируются к приёмке.
+        </p>
         {error && <Notice tone="error">{error}</Notice>}
         <form className="form" onSubmit={handleSubmit}>
           <FormField label="Склад">
@@ -90,7 +98,7 @@ export default function InboundCreatePage() {
               onChange={(e) => setWarehouseId(e.target.value)}
               required
             >
-              <option value="">Выберите склад</option>
+              <option value="">Выберите склад для приёмки</option>
               {warehouses.map((w) => (
                 <option key={w.id} value={w.id}>
                   {w.name} ({w.code})
@@ -98,21 +106,20 @@ export default function InboundCreatePage() {
               ))}
             </select>
           </FormField>
-          <FormField label="Номер поставки">
+          <FormField label="Номер поставки (от клиента или поставщика)">
             <input
               value={externalNumber}
               onChange={(e) => setExternalNumber(e.target.value)}
-              placeholder="INB-001"
-              required
+              placeholder="Например: PO-2025-00123 (необязательно)"
             />
           </FormField>
         </form>
 
         <Card
-          title="Строки поставки"
+          title="Товары в поставке"
           actions={
             <button type="button" className="ghost" onClick={handleAddLine}>
-              Добавить строку
+              Добавить товар в поставку
             </button>
           }
         >
@@ -148,7 +155,7 @@ export default function InboundCreatePage() {
                         onChange={(e) =>
                           handleLineChange(idx, "expected_qty", e.target.value)
                         }
-                        placeholder="1"
+                        placeholder="Введите количество"
                       />
                     </td>
                   </tr>
@@ -159,7 +166,7 @@ export default function InboundCreatePage() {
         </Card>
 
         <button onClick={handleSubmit} disabled={loading}>
-          {loading ? "Сохранение..." : "Сохранить"}
+          {loading ? "Создание..." : "Создать поставку"}
         </button>
       </Card>
     </div>

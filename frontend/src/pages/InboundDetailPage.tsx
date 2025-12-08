@@ -16,9 +16,20 @@ type LineForm = { qty: string; location_id: string };
 
 const statusLabels: Record<InboundStatus, string> = {
   draft: "Черновик",
-  in_progress: "В процессе",
+  in_progress: "В приёмке",
   completed: "Завершена",
   cancelled: "Отменена",
+};
+
+const lineStatusLabel = (status?: string | null) => {
+  if (!status) return "—";
+  const map: Record<string, string> = {
+    open: "Открыта",
+    partially_received: "Частично принято",
+    fully_received: "Принято полностью",
+    cancelled: "Отменена",
+  };
+  return map[status] || status;
 };
 
 export default function InboundDetailPage() {
@@ -30,6 +41,7 @@ export default function InboundDetailPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [forms, setForms] = useState<Record<number, LineForm>>({});
+  const [openReceive, setOpenReceive] = useState<Record<number, boolean>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -104,8 +116,16 @@ export default function InboundDetailPage() {
     const form = forms[line.id] || { qty: "", location_id: "" };
     const qty = Number(form.qty);
     const locationId = Number(form.location_id);
-    if (!qty || qty <= 0 || !locationId) {
-      setError("Укажите количество и ячейку");
+    if (!locationId) {
+      setError("Выберите ячейку склада");
+      return;
+    }
+    if (!qty || qty <= 0) {
+      setError("Количество к приёмке должно быть больше нуля");
+      return;
+    }
+    if (qty + line.received_qty > line.expected_qty) {
+      setError("Количество к приёмке не может превышать ожидаемое по строке");
       return;
     }
     setLoading(true);
@@ -118,11 +138,12 @@ export default function InboundDetailPage() {
         qty,
       });
       setOrder(updated);
-      setMessage("Приёмка строки выполнена");
+      setMessage("Приёмка по товару выполнена");
       setForms((prev) => ({
         ...prev,
         [line.id]: { qty: "", location_id: form.location_id },
       }));
+      setOpenReceive((prev) => ({ ...prev, [line.id]: false }));
     } catch (e: any) {
       setError(e.message || "Не удалось принять строку");
     } finally {
@@ -138,10 +159,15 @@ export default function InboundDetailPage() {
     );
   }
 
+  const titleNumber =
+    order?.external_number?.trim() && order?.external_number.trim() !== ""
+      ? order.external_number
+      : `№${order?.id ?? orderId}`;
+
   return (
     <div className="page">
       <Card
-        title={`Поставка #${order?.id ?? orderId}`}
+        title={`Поставка ${titleNumber}`}
         actions={
           <Link className="ghost" to="/inbound">
             ← К списку поставок
@@ -154,13 +180,13 @@ export default function InboundDetailPage() {
 
         {order && (
           <>
-            <div className="grid two">
+            <div className="grid two" style={{ marginBottom: 12 }}>
               <div>
                 <p>
                   <strong>Склад:</strong> {warehouseName}
                 </p>
                 <p>
-                  <strong>Номер поставки:</strong> {order.external_number}
+                  <strong>Внешний номер:</strong> {order.external_number || "—"}
                 </p>
                 <p>
                   <strong>Статус:</strong> {statusLabels[order.status] || order.status}
@@ -168,15 +194,15 @@ export default function InboundDetailPage() {
               </div>
               <div>
                 <p>
-                  <strong>Создана:</strong> {order.created_at ?? "—"}
+                  <strong>Дата создания:</strong> {order.created_at ?? "—"}
                 </p>
                 <p>
-                  <strong>Обновлена:</strong> {order.updated_at ?? "—"}
+                  <strong>Дата обновления:</strong> {order.updated_at ?? "—"}
                 </p>
               </div>
             </div>
 
-            <div className="actions-row" style={{ marginTop: 12 }}>
+            <div className="actions-row" style={{ marginTop: 12, gap: 8 }}>
               {order.status === "draft" && (
                 <button onClick={() => handleStatusChange("in_progress")} disabled={loading}>
                   Начать приёмку
@@ -185,14 +211,14 @@ export default function InboundDetailPage() {
               {order.status === "in_progress" && (
                 <>
                   <button onClick={() => handleStatusChange("completed")} disabled={loading}>
-                    Завершить
+                    Завершить приёмку
                   </button>
                   <button
                     onClick={() => handleStatusChange("cancelled")}
                     disabled={loading}
                     className="ghost"
                   >
-                    Отменить
+                    Отменить поставку
                   </button>
                 </>
               )}
@@ -201,23 +227,24 @@ export default function InboundDetailPage() {
         )}
       </Card>
 
-      <Card title="Строки поставки">
+      <Card title="Товары в поставке">
         <div className="table-wrapper">
           <table>
             <thead>
               <tr>
                 <th>Товар</th>
-                <th>Ожид.</th>
-                <th>Принято</th>
-                <th>Статус</th>
+                <th>Ожидаемое количество</th>
+                <th>Принятое количество</th>
+                <th>Статус строки</th>
                 <th>Ячейка</th>
-                {order?.status === "in_progress" && <th>Приёмка</th>}
+                {order?.status === "in_progress" && <th>Действия</th>}
               </tr>
             </thead>
             <tbody>
               {order?.lines.map((line) => {
                 const item = items.find((i) => i.id === line.item_id);
                 const location = locations.find((l) => l.id === line.location_id);
+                const formState = forms[line.id] || { qty: "", location_id: "" };
                 return (
                   <tr key={line.id}>
                     <td>
@@ -231,47 +258,73 @@ export default function InboundDetailPage() {
                     </td>
                     <td>{line.expected_qty}</td>
                     <td>{line.received_qty}</td>
-                    <td>{line.line_status || "—"}</td>
+                    <td>{lineStatusLabel(line.line_status)}</td>
                     <td>{location ? location.code : line.location_id ?? "—"}</td>
                     {order?.status === "in_progress" && (
                       <td>
-                        <form onSubmit={(e) => handleReceive(line, e)} className="form inline">
-                          <FormField label="Ячейка">
-                            <select
-                              value={forms[line.id]?.location_id ?? ""}
-                              onChange={(e) =>
-                                setForms((prev) => ({
-                                  ...prev,
-                                  [line.id]: { ...prev[line.id], location_id: e.target.value },
-                                }))
-                              }
-                            >
-                              <option value="">Выбрать</option>
-                              {locations.map((loc) => (
-                                <option key={loc.id} value={loc.id}>
-                                  {loc.code}
-                                </option>
-                              ))}
-                            </select>
-                          </FormField>
-                          <FormField label="Кол-во">
-                            <input
-                              type="number"
-                              min={1}
-                              value={forms[line.id]?.qty ?? ""}
-                              onChange={(e) =>
-                                setForms((prev) => ({
-                                  ...prev,
-                                  [line.id]: { ...prev[line.id], qty: e.target.value },
-                                }))
-                              }
-                              style={{ width: 90 }}
-                            />
-                          </FormField>
-                          <button type="submit" disabled={loading}>
-                            Принять
+                        {!openReceive[line.id] ? (
+                          <button
+                            type="button"
+                            className="ghost"
+                            onClick={() =>
+                              setOpenReceive((prev) => ({ ...prev, [line.id]: true }))
+                            }
+                            disabled={loading}
+                          >
+                            Принять товар
                           </button>
-                        </form>
+                        ) : (
+                          <form onSubmit={(e) => handleReceive(line, e)} className="form inline">
+                            <FormField label="Ячейка хранения">
+                              <select
+                                value={formState.location_id}
+                                onChange={(e) =>
+                                  setForms((prev) => ({
+                                    ...prev,
+                                    [line.id]: { ...prev[line.id], location_id: e.target.value },
+                                  }))
+                                }
+                              >
+                                <option value="">Выберите ячейку, куда положите товар</option>
+                                {locations.map((loc) => (
+                                  <option key={loc.id} value={loc.id}>
+                                    {loc.code}
+                                  </option>
+                                ))}
+                              </select>
+                            </FormField>
+                            <FormField label="Количество к приёмке" helper="Не больше ожидаемого по строке">
+                              <input
+                                type="number"
+                                min={1}
+                                value={formState.qty}
+                                onChange={(e) =>
+                                  setForms((prev) => ({
+                                    ...prev,
+                                    [line.id]: { ...prev[line.id], qty: e.target.value },
+                                  }))
+                                }
+                                placeholder="Введите количество"
+                                style={{ width: 140 }}
+                              />
+                            </FormField>
+                            <div className="actions-row">
+                              <button type="submit" disabled={loading}>
+                                {loading ? "Обработка..." : "Подтвердить приёмку"}
+                              </button>
+                              <button
+                                type="button"
+                                className="ghost"
+                                onClick={() =>
+                                  setOpenReceive((prev) => ({ ...prev, [line.id]: false }))
+                                }
+                                disabled={loading}
+                              >
+                                Отменить
+                              </button>
+                            </div>
+                          </form>
+                        )}
                       </td>
                     )}
                   </tr>
