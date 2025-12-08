@@ -147,12 +147,12 @@ export default function InventoryPage() {
 
   return (
     <div className="page">
-      <Card title="Остатки / операции">
-        {message && <Notice tone="success">{message}</Notice>}
-        {error && <Notice tone="error">{error}</Notice>}
-        <div className="grid two-cols">
+      {message && <Notice tone="success">{message}</Notice>}
+      {error && <Notice tone="error">{error}</Notice>}
+
+      <div className="grid two-cols">
+        <Card title="Приёмка">
           <form className="form" onSubmit={handleInboundSubmit}>
-            <h3>Приёмка</h3>
             <FormField label="Склад">
               <select
                 value={inboundForm.warehouse_id}
@@ -219,9 +219,10 @@ export default function InventoryPage() {
               {loading ? "Выполняю..." : "Приход"}
             </button>
           </form>
+        </Card>
 
+        <Card title="Перемещение">
           <form className="form" onSubmit={handleMoveSubmit}>
-            <h3>Перемещение</h3>
             <FormField label="Склад">
               <select
                 value={moveForm.warehouse_id}
@@ -307,97 +308,97 @@ export default function InventoryPage() {
               {loading ? "Выполняю..." : "Переместить"}
             </button>
           </form>
-        </div>
-
-        <Card title="Остатки" actions={<span className="muted">Фильтры</span>}>
-          <form
-            className="form inline"
-            onSubmit={(e) => {
-              e.preventDefault();
-              refreshInventory();
-            }}
-          >
-            <FormField label="Склад">
-              <select
-                value={filters.warehouse_id}
-                onChange={(e) =>
-                  setFilters((p) => ({ ...p, warehouse_id: e.target.value }))
-                }
-              >
-                <option value="">Все</option>
-                {warehouseOptions.map((w) => (
-                  <option key={w.value} value={w.value}>
-                    {w.label}
-                  </option>
-                ))}
-              </select>
-            </FormField>
-            <FormField label="Ячейка">
-              <select
-                value={filters.location_id}
-                onChange={(e) =>
-                  setFilters((p) => ({ ...p, location_id: e.target.value }))
-                }
-              >
-                <option value="">Все</option>
-                {locations.map((loc) => (
-                  <option key={loc.id} value={loc.id}>
-                    {loc.code}
-                  </option>
-                ))}
-              </select>
-            </FormField>
-            <FormField label="Товар">
-              <select
-                value={filters.item_id}
-                onChange={(e) =>
-                  setFilters((p) => ({ ...p, item_id: e.target.value }))
-                }
-              >
-                <option value="">Все</option>
-                {itemOptions.map((i) => (
-                  <option key={i.value} value={i.value}>
-                    {i.label}
-                  </option>
-                ))}
-              </select>
-            </FormField>
-            <button type="submit" disabled={loading}>
-              Обновить
-            </button>
-          </form>
-          <div className="table-wrapper">
-            <table>
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Склад</th>
-                  <th>Ячейка</th>
-                  <th>Товар</th>
-                  <th>Количество</th>
-                </tr>
-              </thead>
-              <tbody>
-                {inventory.map((inv) => (
-                  <tr key={inv.id}>
-                    <td>{inv.id}</td>
-                    <td>{inv.warehouse_id}</td>
-                    <td>{inv.location_id}</td>
-                    <td>{inv.item_id}</td>
-                    <td>{inv.quantity}</td>
-                  </tr>
-                ))}
-                {inventory.length === 0 && (
-                  <tr>
-                    <td colSpan={5} style={{ textAlign: "center" }}>
-                      Остатков нет
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
         </Card>
+      </div>
+
+      <Card title="Остатки" actions={<span className="muted">Фильтры</span>}>
+        <form
+          className="form inline"
+          onSubmit={(e) => {
+            e.preventDefault();
+            refreshInventory();
+          }}
+        >
+          <FormField label="Склад">
+            <select
+              value={filters.warehouse_id}
+              onChange={(e) =>
+                setFilters((p) => ({ ...p, warehouse_id: e.target.value }))
+              }
+            >
+              <option value="">Все</option>
+              {warehouseOptions.map((w) => (
+                <option key={w.value} value={w.value}>
+                  {w.label}
+                </option>
+              ))}
+            </select>
+          </FormField>
+          <FormField label="Ячейка">
+            <select
+              value={filters.location_id}
+              onChange={(e) =>
+                setFilters((p) => ({ ...p, location_id: e.target.value }))
+              }
+            >
+              <option value="">Все</option>
+              {locations.map((loc) => (
+                <option key={loc.id} value={loc.id}>
+                  {loc.code}
+                </option>
+              ))}
+            </select>
+          </FormField>
+          <FormField label="Товар">
+            <select
+              value={filters.item_id}
+              onChange={(e) =>
+                setFilters((p) => ({ ...p, item_id: e.target.value }))
+              }
+            >
+              <option value="">Все</option>
+              {itemOptions.map((i) => (
+                <option key={i.value} value={i.value}>
+                  {i.label}
+                </option>
+              ))}
+            </select>
+          </FormField>
+          <button type="submit" disabled={loading}>
+            Обновить
+          </button>
+        </form>
+        <div className="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Склад</th>
+                <th>Ячейка</th>
+                <th>Товар</th>
+                <th>Количество</th>
+              </tr>
+            </thead>
+            <tbody>
+              {inventory.map((inv) => (
+                <tr key={inv.id}>
+                  <td>{inv.id}</td>
+                  <td>{inv.warehouse_id}</td>
+                  <td>{inv.location_id}</td>
+                  <td>{inv.item_id}</td>
+                  <td>{inv.quantity}</td>
+                </tr>
+              ))}
+              {inventory.length === 0 && (
+                <tr>
+                  <td colSpan={5} style={{ textAlign: "center" }}>
+                    Остатков нет
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </Card>
     </div>
   );
