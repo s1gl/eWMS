@@ -152,6 +152,12 @@ button {
   transition: transform 0.05s ease, box-shadow 0.1s ease;
 }
 
+button.ghost {
+  background: transparent;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+}
+
 button:disabled {
   background: #94a3b8;
   cursor: not-allowed;

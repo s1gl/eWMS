@@ -18,12 +18,15 @@ export default function InventoryStockPage() {
 
   const [filters, setFilters] = useState({
     warehouse_id: "",
+    zone_id: "",
     location_id: "",
     item_id: "",
+    sku: "",
   });
 
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showFilters, setShowFilters] = useState(true);
 
   useEffect(() => {
     const load = async () => {
@@ -55,12 +58,37 @@ export default function InventoryStockPage() {
     setLoading(true);
     setError(null);
     try {
+      // приоритет SKU, если введён
+      let itemId = toNum(filters.item_id);
+      if (filters.sku.trim()) {
+        const found = items.find(
+          (i) => i.sku.toLowerCase() === filters.sku.trim().toLowerCase()
+        );
+        if (!found) {
+          setError("Товар с таким SKU не найден");
+          setLoading(false);
+          return;
+        }
+        itemId = found.id;
+      }
+
       const data = await fetchInventory({
         warehouse_id: toNum(filters.warehouse_id),
         location_id: toNum(filters.location_id),
-        item_id: toNum(filters.item_id),
+        item_id: itemId,
       });
-      setInventory(data);
+
+      // дополнительная фильтрация по зоне (если указана и не выбран location)
+      const zoneId = toNum(filters.zone_id);
+      const filtered =
+        zoneId && !filters.location_id
+          ? data.filter((inv) => {
+              const loc = locations.find((l) => l.id === inv.location_id);
+              return loc?.zone_id === zoneId;
+            })
+          : data;
+
+      setInventory(filtered);
     } catch (err: any) {
       setError(err.message || "Не удалось обновить остатки");
     } finally {
@@ -71,57 +99,105 @@ export default function InventoryStockPage() {
   return (
     <div className="page">
       {error && <Notice tone="error">{error}</Notice>}
-      <Card title="Остатки" actions={<span className="muted">Фильтры</span>}>
-        <form className="form inline" onSubmit={handleFilter}>
-          <FormField label="Склад">
-            <select
-              value={filters.warehouse_id}
-              onChange={(e) =>
-                setFilters((p) => ({ ...p, warehouse_id: e.target.value }))
-              }
-            >
-              <option value="">Все</option>
-              {warehouses.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.name} ({w.code})
-                </option>
-              ))}
-            </select>
-          </FormField>
-          <FormField label="Ячейка">
-            <select
-              value={filters.location_id}
-              onChange={(e) =>
-                setFilters((p) => ({ ...p, location_id: e.target.value }))
-              }
-            >
-              <option value="">Все</option>
-              {locations.map((loc) => (
-                <option key={loc.id} value={loc.id}>
-                  {loc.code}
-                </option>
-              ))}
-            </select>
-          </FormField>
-          <FormField label="Товар">
-            <select
-              value={filters.item_id}
-              onChange={(e) =>
-                setFilters((p) => ({ ...p, item_id: e.target.value }))
-              }
-            >
-              <option value="">Все</option>
-              {items.map((i) => (
-                <option key={i.id} value={i.id}>
-                  {i.name} ({i.sku})
-                </option>
-              ))}
-            </select>
-          </FormField>
-          <button type="submit" disabled={loading}>
-            Обновить
+      <Card
+        title="Остатки"
+        actions={
+          <button
+            type="button"
+            className="ghost"
+            onClick={() => setShowFilters((v) => !v)}
+          >
+            Фильтры {showFilters ? "▲" : "▼"}
           </button>
-        </form>
+        }
+      >
+        {showFilters && (
+          <form className="form inline" onSubmit={handleFilter}>
+            <FormField label="Склад">
+              <select
+                value={filters.warehouse_id}
+                onChange={(e) =>
+                  setFilters((p) => ({ ...p, warehouse_id: e.target.value }))
+                }
+              >
+                <option value="">Все</option>
+                {warehouses.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.name} ({w.code})
+                  </option>
+                ))}
+              </select>
+            </FormField>
+            <FormField label="Зона">
+              <select
+                value={filters.zone_id}
+                onChange={(e) =>
+                  setFilters((p) => ({ ...p, zone_id: e.target.value }))
+                }
+              >
+                <option value="">Все</option>
+                {zones
+                  .filter(
+                    (z) =>
+                      !filters.warehouse_id ||
+                      z.warehouse_id === Number(filters.warehouse_id)
+                  )
+                  .map((z) => (
+                    <option key={z.id} value={z.id}>
+                      {z.code}
+                    </option>
+                  ))}
+              </select>
+            </FormField>
+            <FormField label="Ячейка">
+              <select
+                value={filters.location_id}
+                onChange={(e) =>
+                  setFilters((p) => ({ ...p, location_id: e.target.value }))
+                }
+              >
+                <option value="">Все</option>
+                {locations
+                  .filter(
+                    (loc) =>
+                      (!filters.warehouse_id ||
+                        loc.warehouse_id === Number(filters.warehouse_id)) &&
+                      (!filters.zone_id || loc.zone_id === Number(filters.zone_id))
+                  )
+                  .map((loc) => (
+                    <option key={loc.id} value={loc.id}>
+                      {loc.code}
+                    </option>
+                  ))}
+              </select>
+            </FormField>
+            <FormField label="Товар (ID)">
+              <select
+                value={filters.item_id}
+                onChange={(e) =>
+                  setFilters((p) => ({ ...p, item_id: e.target.value }))
+                }
+              >
+                <option value="">Все</option>
+                {items.map((i) => (
+                  <option key={i.id} value={i.id}>
+                    {i.name} ({i.sku})
+                  </option>
+                ))}
+              </select>
+            </FormField>
+            <FormField label="SKU">
+              <input
+                value={filters.sku}
+                onChange={(e) => setFilters((p) => ({ ...p, sku: e.target.value }))}
+                placeholder="SKU001"
+              />
+            </FormField>
+            <button type="submit" disabled={loading}>
+              Обновить
+            </button>
+          </form>
+        )}
 
         <div className="table-wrapper">
           <table>
