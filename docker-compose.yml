@@ -11,6 +11,11 @@ services:
       POSTGRES_PASSWORD: wms_password
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wms -d wms"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     volumes:
       - db_data:/var/lib/postgresql/data
 
@@ -71,6 +76,8 @@ services:
       - db
     volumes:
       - pgadmin_data:/var/lib/pgadmin
+      - ./pgadmin:/pgadmin-init:ro
+    entrypoint: ["/bin/sh", "-c", "/pgadmin-init/init_server.sh && /entrypoint.sh"]
 
 volumes:
   db_data:

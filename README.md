@@ -179,3 +179,13 @@ MIT License
 - Восстановление БД (перезапишет данные): `./scripts/db_backup_restore.sh restore backups/имя_файла.sql`
 
 Подробнее см. `docs/pgadmin.md`.
+
+## Работа с БД и pgAdmin
+- Поднять сервисы (авто-добавление сервера в pgAdmin): `docker compose up -d`
+- pgAdmin: http://localhost:5050 (логин/пароль: `admin@ewms.ru` / `admin`)
+- Автонастройка сервера: при старте pgAdmin импортирует `pgadmin/Servers.json` в `/var/lib/pgadmin/servers.json` через `pgadmin/init_server.sh`, и сервер `eWMS Postgres` сразу доступен.
+- Параметры подключения (если нужно вручную): Host `db`, Port `5432`, DB `wms`, User `wms`, Password `wms_password`.
+- Бэкап БД: `./scripts/db_backup_restore.sh backup` > `backups/wms_backup_YYYYMMDD.sql`
+- Восстановление БД: `./scripts/db_backup_restore.sh restore backups/имя_файла.sql`
+
+Смотрите также `docs/pgadmin.md` и `pgadmin/Servers.json`.
