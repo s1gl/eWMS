@@ -28,7 +28,19 @@ export async function request<T>(
   }
 
   if (!res.ok) {
-    const message = data?.detail || res.statusText || "Request failed";
+    const detail = data?.detail;
+    let message: string;
+    if (typeof detail === "string") {
+      message = detail;
+    } else if (detail && typeof detail === "object") {
+      message =
+        // common shapes from FastAPI/Pydantic errors
+        (detail as any).message ||
+        (detail as any).error ||
+        JSON.stringify(detail);
+    } else {
+      message = res.statusText || "Request failed";
+    }
     throw new Error(message);
   }
 

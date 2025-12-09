@@ -55,6 +55,9 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
+    environment:
+      # фронт работает в браузере на машине пользователя, поэтому бекенд доступен по localhost
+      VITE_API_BASE: "http://localhost:8000"
     ports:
       - "5173:5173"
     volumes:

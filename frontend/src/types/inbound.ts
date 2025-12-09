@@ -50,4 +50,5 @@ export type InboundReceivePayload = {
   qty: number;
   item_id?: number;
   condition?: string;
+  tare_id: number;
 };

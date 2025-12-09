@@ -56,3 +56,4 @@ class InboundReceiveRequest(BaseModel):
     qty: int = Field(gt=0)
     item_id: Optional[int] = None
     condition: Optional[str] = None
+    tare_id: int

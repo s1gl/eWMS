@@ -27,7 +27,7 @@ export default function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <div className="brand">eWMS Frontend</div>
+        <div className="brand">eWMS</div>
         <nav className="nav">
           {navLinks.map((link) => (
             <NavLink
@@ -52,10 +52,17 @@ export default function App() {
           <Route path="/inbound" element={<InboundListPage />} />
           <Route path="/inbound/new" element={<InboundCreatePage />} />
           <Route path="/inbound/:id" element={<InboundDetailPage />} />
-          <Route path="/inventory" element={<Navigate to="/inventory/inbound" replace />} />
+          <Route
+            path="/inventory"
+            element={<Navigate to="/inventory/inbound" replace />}
+          />
           <Route path="/inventory/inbound" element={<InventoryInboundPage />} />
           <Route path="/inventory/move" element={<InventoryMovePage />} />
           <Route path="/inventory/stock" element={<InventoryStockPage />} />
+          <Route
+            path="/setup-wizard"
+            element={<Navigate to="/setup-warehouse" replace />}
+          />
           <Route path="/setup-warehouse" element={<WarehouseSetupWizard />} />
         </Routes>
       </main>

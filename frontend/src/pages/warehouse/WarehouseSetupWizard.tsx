@@ -11,14 +11,7 @@ import { Zone, ZoneType } from "../../types/zone";
 type Step = 1 | 2 | 3 | 4;
 
 type ZoneForm = { name: string; code: string };
-
-type LocationGen = {
-  rows: string;
-  cols: string;
-  levels: string;
-  template: string;
-  preview: string[];
-};
+type LocationGen = { rows: string; cols: string; levels: string; template: string; preview: string[] };
 
 const zoneLabels: Record<ZoneType, string> = {
   inbound: "Приёмка",
@@ -69,7 +62,7 @@ export default function WarehouseSetupWizard() {
 
   const handleCreateWarehouse = async () => {
     if (!warehouseForm.name.trim() || !warehouseForm.code.trim()) {
-      setError("Заполните название и код склада");
+      setError("Укажите имя и код склада");
       return;
     }
     setLoading(true);
@@ -82,7 +75,7 @@ export default function WarehouseSetupWizard() {
       });
       setWarehouse(wh);
       setStep(2);
-      setMessage("Склад создан. Добавьте зоны.");
+      setMessage("Склад создан. Теперь добавьте зоны с ролями.");
       setWarehouseForm({ name: "", code: "" });
       const zs = await fetchZones({ warehouse_id: wh.id });
       setZones(zs);
@@ -97,7 +90,7 @@ export default function WarehouseSetupWizard() {
     if (!warehouse) return;
     const form = zoneForms[zone_type];
     if (!form.name.trim() || !form.code.trim()) {
-      setError("Заполните название и код зоны");
+      setError("Введите название и код зоны");
       return;
     }
     setLoading(true);
@@ -111,10 +104,7 @@ export default function WarehouseSetupWizard() {
         zone_type,
       });
       setZones((prev) => [...prev, zone]);
-      setZoneForms((p) => ({
-        ...p,
-        [zone_type]: { name: "", code: "" },
-      }));
+      setZoneForms((p) => ({ ...p, [zone_type]: { name: "", code: "" } }));
     } catch (e: any) {
       setError(e.message || "Не удалось создать зону");
     } finally {
@@ -183,7 +173,7 @@ export default function WarehouseSetupWizard() {
     const cols = Number(form.cols);
     const levels = Number(form.levels);
     if (!rows || !cols || !levels) {
-      setError("Укажите параметры генерации для зоны " + zone.name);
+      setError(`Заполните размеры для зоны ${zone.name}`);
       return;
     }
     setLoading(true);
@@ -208,13 +198,13 @@ export default function WarehouseSetupWizard() {
             });
             created += 1;
           } catch {
-            // ignore duplicates/errors to keep flow simple
+            // пропускаем дубли, идём дальше
           }
         }
       }
     }
     setCreatedLocations((prev) => prev + created);
-    setMessage(`Создано ячеек для зоны ${zone.name}: ${created}`);
+    setMessage(`Создано ячеек в зоне ${zone.name}: ${created}`);
     setLoading(false);
   };
 
@@ -276,11 +266,7 @@ export default function WarehouseSetupWizard() {
             if (step === 2 && canGoStep3) setStep(3);
             if (step === 3) setStep(4);
           }}
-          canNext={
-            (step === 1 && !!warehouse) ||
-            (step === 2 && canGoStep3) ||
-            step === 3
-          }
+          canNext={(step === 1 && !!warehouse) || (step === 2 && canGoStep3) || step === 3}
         />
       </Card>
     </div>
@@ -289,10 +275,10 @@ export default function WarehouseSetupWizard() {
 
 function StepIndicator({ step }: { step: Step }) {
   const steps = [
-    { id: 1, label: "Шаг 1: Основные данные склада" },
-    { id: 2, label: "Шаг 2: Зоны склада" },
-    { id: 3, label: "Шаг 3: Ячейки" },
-    { id: 4, label: "Шаг 4: Готово" },
+    { id: 1, label: "Шаг 1: Создание склада" },
+    { id: 2, label: "Шаг 2: Зоны по ролям" },
+    { id: 3, label: "Шаг 3: Генерация ячеек" },
+    { id: 4, label: "Шаг 4: Итоги" },
   ];
   return (
     <div className="wizard-steps">
@@ -320,14 +306,14 @@ function StepWarehouse({
     <div className="wizard-section">
       <h3>Основные данные склада</h3>
       <p className="muted">
-        Укажите понятное название и короткий код. Код используется в индексах ячеек и зонах.
+        Укажите название и короткий код. Код должен быть уникальным: WH01, MSC-1 и т.п.
       </p>
       <div className="form two-cols">
         <FormField label="Название склада">
           <input
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="Например: Основной склад"
+            placeholder="Например: Главный склад"
           />
         </FormField>
         <FormField label="Код склада">
@@ -339,7 +325,7 @@ function StepWarehouse({
         </FormField>
       </div>
       <button onClick={onCreate} disabled={loading}>
-        {loading ? "Сохранение..." : "Создать склад и перейти дальше"}
+        {loading ? "Создание..." : "Создать и перейти к зонам"}
       </button>
     </div>
   );
@@ -362,15 +348,15 @@ function StepZones({
 }) {
   const blocks: ZoneType[] = ["inbound", "storage", "outbound"];
   const descriptions: Record<ZoneType, string> = {
-    inbound: "Сюда попадает товар после разгрузки с машины",
-    storage: "Основное хранение, где товар лежит на полках или стеллажах",
-    outbound: "Зона отгрузки и комплектации перед отправкой клиенту",
+    inbound: "Приёмка — сюда приезжает товар сразу после машины.",
+    storage: "Хранение — основная зона для размещения товара на складе.",
+    outbound: "Отгрузка — место, откуда собираем и отправляем заказы.",
   };
   return (
     <div className="wizard-section">
       <h3>Зоны склада: {warehouse.name}</h3>
       <p className="muted">
-        Добавьте минимум одну зону каждого типа: приёмка, хранение, отгрузка. Потом можно будет расширять.
+        Добавьте минимум по одной зоне каждого типа: приёмка, хранение, отгрузка.
       </p>
       <div className="grid three">
         {blocks.map((type) => (
@@ -379,7 +365,7 @@ function StepZones({
               {descriptions[type]}
             </p>
             <div className="form">
-              <FormField label="Название">
+              <FormField label="Название зоны">
                 <input
                   value={zoneForms[type].name}
                   onChange={(e) =>
@@ -388,7 +374,7 @@ function StepZones({
                   placeholder="Например: Приёмка-1"
                 />
               </FormField>
-              <FormField label="Код">
+              <FormField label="Код зоны">
                 <input
                   value={zoneForms[type].code}
                   onChange={(e) =>
@@ -398,14 +384,12 @@ function StepZones({
                 />
               </FormField>
               <button type="button" onClick={() => addZone(type)} disabled={loading}>
-                {loading ? "Добавление..." : "Добавить зону"}
+                {loading ? "Сохранение..." : "Добавить зону"}
               </button>
             </div>
             <div className="muted" style={{ marginTop: 8 }}>
-              Текущие:{" "}
-              {zonesByType[type].length === 0
-                ? "пока нет"
-                : zonesByType[type].map((z) => z.code).join(", ")}
+              Уже добавлены:{" "}
+              {zonesByType[type].length === 0 ? "пока нет" : zonesByType[type].map((z) => z.code).join(", ")}
             </div>
           </Card>
         ))}
@@ -429,9 +413,9 @@ function StepLocations({
 }) {
   return (
     <div className="wizard-section">
-      <h3>Ячейки по зонам</h3>
+      <h3>Генерация ячеек</h3>
       <p className="muted">
-        Задайте параметры генерации для каждой зоны. Перед сохранением покажем несколько примерных кодов.
+        Задайте размеры и шаблон кода. Мы покажем превью и создадим ячейки автоматически.
       </p>
       <div className="grid two">
         {zones.map((zone) => {
@@ -448,7 +432,7 @@ function StepLocations({
                     onChange={(e) => onChange(zone, "rows", e.target.value)}
                   />
                 </FormField>
-                <FormField label="Секций/стеллажей">
+                <FormField label="Мест в ряду">
                   <input
                     type="number"
                     min={1}
@@ -476,7 +460,7 @@ function StepLocations({
                 Пример кодов:
               </div>
               <div className="preview-grid">
-                {form.preview.length === 0 && <span className="muted">—</span>}
+                {form.preview.length === 0 && <span className="muted">Заполните параметры</span>}
                 {form.preview.map((code) => (
                   <span key={code} className="pill">
                     {code}
@@ -507,14 +491,14 @@ function StepSummary({
   return (
     <div className="wizard-section">
       <h3>Готово</h3>
-      <p className="muted">Проверьте, что всё создано корректно.</p>
+      <p className="muted">Склад настроен. Проверьте результаты и переходите к работе.</p>
       <div className="summary">
         <p>
           <strong>Склад:</strong> {warehouse.name} ({warehouse.code})
         </p>
         <p>
-          <strong>Зон:</strong> всего {totalZones} — приёмка {summary.inbound}, хранение{" "}
-          {summary.storage}, отгрузка {summary.outbound}
+          <strong>Зоны:</strong> всего {totalZones}; приёмка {summary.inbound}, хранение {summary.storage}, отгрузка{" "}
+          {summary.outbound}
         </p>
         <p>
           <strong>Создано ячеек:</strong> {createdLocations}
@@ -523,6 +507,40 @@ function StepSummary({
       <button type="button" onClick={() => (window.location.href = "/warehouses")}>
         Перейти к складам
       </button>
+    </div>
+  );
+}
+
+function WizardFooter({
+  step,
+  canPrev,
+  onPrev,
+  onNext,
+  canNext,
+}: {
+  step: Step;
+  canPrev: boolean;
+  onPrev: () => void;
+  onNext: () => void;
+  canNext: boolean;
+}) {
+  return (
+    <div className="wizard-footer">
+      <button type="button" className="ghost" onClick={onPrev} disabled={!canPrev}>
+        Назад
+      </button>
+      <div>
+        {step < 4 && (
+          <button type="button" onClick={onNext} disabled={!canNext}>
+            Далее
+          </button>
+        )}
+        {step === 4 && (
+          <button type="button" onClick={() => (window.location.href = "/warehouses")}>
+            Завершить
+          </button>
+        )}
+      </div>
     </div>
   );
 }

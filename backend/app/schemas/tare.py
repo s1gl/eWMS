@@ -49,3 +49,15 @@ class TareItemRead(BaseModel):
     tare_id: int
     item_id: int
     quantity: int
+
+
+class TareItemWithItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    tare_id: int
+    item_id: int
+    quantity: int
+    item_sku: str
+    item_name: str
+    item_unit: str

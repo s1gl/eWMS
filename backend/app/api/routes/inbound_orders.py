@@ -14,6 +14,9 @@ from app.models import (
     Partner,
     Item,
     Location,
+    Tare,
+    TareItem,
+    ZoneType,
 )
 from app.schemas import (
     InboundOrderCreate,
@@ -248,12 +251,29 @@ async def receive_inbound_line(
 
     actual_item_id = payload.item_id or line.item_id
 
-    # validate location belongs to warehouse
-    location = await session.get(Location, payload.location_id)
+    # validate location belongs to warehouse and is inbound zone
+    location = (
+        await session.execute(
+            select(Location).options(selectinload(Location.zone)).where(Location.id == payload.location_id)
+        )
+    ).scalar_one_or_none()
     if location is None:
         raise HTTPException(status_code=404, detail="Location not found")
     if location.warehouse_id != order.warehouse_id:
         raise HTTPException(status_code=400, detail="Location not in order warehouse")
+    if location.zone is None or location.zone.zone_type != ZoneType.inbound:
+        raise HTTPException(
+            status_code=400,
+            detail="Нельзя принимать товар в ячейку не из зоны приёмки",
+        )
+
+    tare = await session.get(Tare, payload.tare_id)
+    if tare is None:
+        raise HTTPException(status_code=404, detail="Tare not found")
+    if tare.warehouse_id != order.warehouse_id:
+        raise HTTPException(status_code=400, detail="Tare does not belong to order warehouse")
+    tare.location_id = payload.location_id
+    tare.warehouse_id = order.warehouse_id
 
     # validate item exists
     item = await session.get(Item, actual_item_id)
@@ -267,7 +287,26 @@ async def receive_inbound_line(
         location_id=payload.location_id,
         item_id=actual_item_id,
         qty=payload.qty,
+        tare_id=tare.id,
     )
+
+    tare_item = (
+        await session.execute(
+            select(TareItem).where(
+                TareItem.tare_id == tare.id,
+                TareItem.item_id == actual_item_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if tare_item is None:
+        tare_item = TareItem(
+            tare_id=tare.id,
+            item_id=actual_item_id,
+            quantity=payload.qty,
+        )
+        session.add(tare_item)
+    else:
+        tare_item.quantity += payload.qty
 
     # Если пришёл другой товар — создаём отдельную строку пересорта
     if payload.item_id and payload.item_id != line.item_id:

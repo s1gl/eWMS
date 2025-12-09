@@ -13,6 +13,7 @@ async def increment_inventory(
     location_id: int,
     item_id: int,
     qty: int,
+    tare_id: int | None = None,
 ) -> Inventory:
     if qty <= 0:
         raise HTTPException(
@@ -51,10 +52,13 @@ async def increment_inventory(
             warehouse_id=warehouse_id,
             location_id=location_id,
             item_id=item_id,
+            tare_id=tare_id,
             quantity=qty,
         )
         session.add(inv)
     else:
         inv.quantity += qty
+        if tare_id is not None:
+            inv.tare_id = tare_id
 
     return inv

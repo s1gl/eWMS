@@ -3,12 +3,21 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
-from app.models import Tare, TareItem, TareStatus, TareType, Warehouse, Location
+from app.models import (
+    Tare,
+    TareItem,
+    TareStatus,
+    TareType,
+    Warehouse,
+    Location,
+    Item,
+)
 from app.schemas import (
     TareCreate,
     TareRead,
     TareTypeCreate,
     TareTypeRead,
+    TareItemWithItem,
 )
 from app.services.tare_code import generate_tare_code
 
@@ -63,6 +72,29 @@ async def get_tare(tare_id: int, session: AsyncSession = Depends(get_session)):
     if tare is None:
         raise HTTPException(status_code=404, detail="Tare not found")
     return tare
+
+
+@router.get("/{tare_id}/items", response_model=list[TareItemWithItem])
+async def list_tare_items(tare_id: int, session: AsyncSession = Depends(get_session)):
+    tare = await session.get(Tare, tare_id)
+    if tare is None:
+        raise HTTPException(status_code=404, detail="Tare not found")
+    result = await session.execute(
+        select(TareItem, Item).join(Item, Item.id == TareItem.item_id).where(TareItem.tare_id == tare_id)
+    )
+    rows = result.all()
+    return [
+        TareItemWithItem(
+            id=ti.id,
+            tare_id=ti.tare_id,
+            item_id=ti.item_id,
+            quantity=ti.quantity,
+            item_sku=item.sku,
+            item_name=item.name,
+            item_unit=item.unit,
+        )
+        for ti, item in rows
+    ]
 
 
 @router.post("", response_model=TareRead, status_code=status.HTTP_201_CREATED)

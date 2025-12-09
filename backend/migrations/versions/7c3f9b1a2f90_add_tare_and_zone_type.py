@@ -9,6 +9,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 
 # revision identifiers, used by Alembic.
@@ -19,9 +20,13 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    zone_type_enum = sa.Enum("inbound", "storage", "outbound", name="zonetype")
-    zone_type_enum.create(op.get_bind(), checkfirst=True)
+    bind = op.get_bind()
 
+    zone_type_enum = sa.Enum("inbound", "storage", "outbound", name="zonetype")
+    zone_type_enum.create(bind, checkfirst=True)
+
+    if not hasattr(bind.dialect, "supports_alter"):  # pragma: no cover
+        pass
     op.add_column(
         "zones",
         sa.Column(
@@ -44,10 +49,16 @@ def upgrade() -> None:
     )
     op.create_index("ix_tare_types_code", "tare_types", ["code"], unique=True)
 
+    # create enum if not exists (idempotent)
+    # create enum if not exists (idempotent even если тип уже создан)
+    existing_tare_enum = bind.execute(
+        sa.text("SELECT 1 FROM pg_type WHERE typname = :name"), {"name": "tarestates"}
+    ).scalar()
     tare_status_enum = sa.Enum(
         "inbound", "storage", "picking", "outbound", "closed", name="tarestates"
     )
-    tare_status_enum.create(op.get_bind(), checkfirst=True)
+    if not existing_tare_enum:
+        tare_status_enum.create(bind, checkfirst=True)
 
     op.create_table(
         "tares",
@@ -57,7 +68,16 @@ def upgrade() -> None:
         sa.Column("type_id", sa.Integer(), nullable=False),
         sa.Column("tare_code", sa.String(length=100), nullable=False),
         sa.Column("parent_tare_id", sa.Integer(), nullable=True),
-        sa.Column("status", tare_status_enum, nullable=False, server_default="inbound"),
+        sa.Column(
+            "status",
+            postgresql.ENUM(
+                "inbound", "storage", "picking", "outbound", "closed",
+                name="tarestates",
+                create_type=False,
+            ),
+            nullable=False,
+            server_default="inbound",
+        ),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=True),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=True),
         sa.ForeignKeyConstraint(["location_id"], ["locations.id"], ondelete="SET NULL"),
@@ -113,4 +133,3 @@ def downgrade() -> None:
     op.drop_column("zones", "zone_type")
     zone_type_enum = sa.Enum("inbound", "storage", "outbound", name="zonetype")
     zone_type_enum.drop(op.get_bind(), checkfirst=True)
-
