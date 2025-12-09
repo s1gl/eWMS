@@ -1,7 +1,14 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String
+import enum
+from sqlalchemy import Boolean, Column, Enum, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.db.base import Base
+
+
+class ZoneType(str, enum.Enum):
+    inbound = "inbound"
+    storage = "storage"
+    outbound = "outbound"
 
 
 class Warehouse(Base):
@@ -24,6 +31,12 @@ class Zone(Base):
     )
     name = Column(String(255), nullable=False)
     code = Column(String(50), nullable=False)
+    zone_type = Column(
+        Enum(ZoneType, name="zonetype"),
+        nullable=False,
+        default=ZoneType.storage,
+        server_default=ZoneType.storage.value,
+    )
 
     warehouse = relationship("Warehouse", back_populates="zones")
     locations = relationship("Location", back_populates="zone")

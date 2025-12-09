@@ -23,6 +23,7 @@ class InventoryRead(ORMModel):
     id: int
     warehouse_id: int
     location_id: int
+    tare_id: Optional[int] = None
     item_id: int
     quantity: int
 

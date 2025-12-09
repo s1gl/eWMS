@@ -3,7 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
-from app.models.warehouse import Warehouse, Zone
+from app.models.warehouse import Warehouse, Zone, ZoneType
 from app.schemas import ZoneCreate, ZoneRead, ZoneUpdate
 
 router = APIRouter(prefix="/zones", tags=["zones"])
@@ -24,6 +24,7 @@ async def create_zone(
         name=payload.name,
         code=payload.code,
         warehouse_id=payload.warehouse_id,
+        zone_type=ZoneType(payload.zone_type),
     )
     session.add(zone)
     await session.commit()
@@ -61,6 +62,8 @@ async def update_zone(
         zone.name = payload.name
     if payload.code is not None:
         zone.code = payload.code
+    if payload.zone_type is not None:
+        zone.zone_type = ZoneType(payload.zone_type)
 
     await session.commit()
     await session.refresh(zone)

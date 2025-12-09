@@ -14,4 +14,5 @@ api_router.include_router(routes.inbound_orders_router)
 api_router.include_router(routes.outbound_orders_router)
 api_router.include_router(routes.picking_router)
 api_router.include_router(routes.reports_router)
+api_router.include_router(routes.tares_router)
 

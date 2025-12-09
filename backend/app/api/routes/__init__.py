@@ -9,6 +9,7 @@ from app.api.routes.inbound_orders import router as inbound_orders_router
 from app.api.routes.outbound_orders import router as outbound_orders_router
 from app.api.routes.picking import router as picking_router
 from app.api.routes.reports import router as reports_router
+from app.api.routes.tares import router as tares_router
 
 __all__ = [
     "health_router",
@@ -22,5 +23,6 @@ __all__ = [
     "outbound_orders_router",
     "picking_router",
     "reports_router",
+    "tares_router",
 ]
 
