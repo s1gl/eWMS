@@ -10,6 +10,7 @@ import WarehouseSetupWizard from "./pages/warehouse/WarehouseSetupWizard";
 import InboundListPage from "./pages/InboundListPage";
 import InboundCreatePage from "./pages/InboundCreatePage";
 import InboundDetailPage from "./pages/InboundDetailPage";
+import TaresPage from "./pages/TaresPage";
 
 const navLinks = [
   { to: "/warehouses", label: "Склады" },
@@ -17,6 +18,7 @@ const navLinks = [
   { to: "/zones", label: "Зоны" },
   { to: "/locations", label: "Ячейки" },
   { to: "/inbound", label: "Поставки" },
+  { to: "/tares", label: "Тары" },
   { to: "/inventory/inbound", label: "Приёмка" },
   { to: "/inventory/move", label: "Перемещение" },
   { to: "/inventory/stock", label: "Остатки" },
@@ -52,6 +54,7 @@ export default function App() {
           <Route path="/inbound" element={<InboundListPage />} />
           <Route path="/inbound/new" element={<InboundCreatePage />} />
           <Route path="/inbound/:id" element={<InboundDetailPage />} />
+          <Route path="/tares" element={<TaresPage />} />
           <Route
             path="/inventory"
             element={<Navigate to="/inventory/inbound" replace />}

@@ -8,7 +8,7 @@ import Card from "../components/Card";
 import Notice from "../components/Notice";
 
 const statusLabels: Record<InboundStatus, string> = {
-  draft: "Черновик",
+  draft: "Готова к приёмке",
   in_progress: "В приёмке",
   completed: "Завершена",
   cancelled: "Отменена",

@@ -21,6 +21,13 @@ class TareTypeRead(BaseModel):
     level: int
 
 
+class TareTypeUpdate(BaseModel):
+    code: str | None = None
+    name: str | None = None
+    prefix: str | None = None
+    level: int | None = None
+
+
 class TareCreate(BaseModel):
     warehouse_id: int
     type_id: int
@@ -61,3 +68,11 @@ class TareItemWithItem(BaseModel):
     item_sku: str
     item_name: str
     item_unit: str
+
+
+class TareBulkCreate(BaseModel):
+    warehouse_id: int
+    type_id: int
+    count: int = 1
+    location_id: Optional[int] = None
+    parent_tare_id: Optional[int] = None
