@@ -1,10 +1,17 @@
 import { FormEvent, useEffect, useState } from "react";
 import { fetchWarehouses } from "../api/warehouses";
 import { createZone, deleteZone, fetchZones, updateZone } from "../api/zones";
-import { Warehouse, Zone } from "../types";
+import { Warehouse } from "../types/warehouse";
+import { Zone, ZoneType } from "../types/zone";
 import Card from "../components/Card";
 import FormField from "../components/FormField";
 import Notice from "../components/Notice";
+
+const zoneLabels: Record<ZoneType, string> = {
+  inbound: "Приёмка",
+  storage: "Хранение",
+  outbound: "Отгрузка",
+};
 
 export default function ZonesPage() {
   const [zones, setZones] = useState<Zone[]>([]);
@@ -12,6 +19,7 @@ export default function ZonesPage() {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [warehouseId, setWarehouseId] = useState("");
+  const [zoneType, setZoneType] = useState<ZoneType>("storage");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +33,7 @@ export default function ZonesPage() {
         setWarehouses(wh);
         setZones(zs);
       } catch (e: any) {
-        setError(e.message || "Не удалось загрузить зоны");
+        setError(e.message || "Не удалось загрузить зоны и склады");
       } finally {
         setLoading(false);
       }
@@ -46,20 +54,27 @@ export default function ZonesPage() {
           name: name.trim(),
           code: code.trim(),
           warehouse_id: wId,
+          zone_type: zoneType,
         });
         setMessage("Зона обновлена");
       } else {
-        await createZone({ name: name.trim(), code: code.trim(), warehouse_id: wId });
+        await createZone({
+          name: name.trim(),
+          code: code.trim(),
+          warehouse_id: wId,
+          zone_type: zoneType,
+        });
         setMessage("Зона создана");
       }
       setName("");
       setCode("");
       setWarehouseId("");
+      setZoneType("storage");
       setEditId(null);
       const zs = await fetchZones();
       setZones(zs);
     } catch (err: any) {
-      setError(err.message || "Ошибка сохранения зоны");
+      setError(err.message || "Не удалось сохранить зону");
     } finally {
       setLoading(false);
     }
@@ -70,6 +85,7 @@ export default function ZonesPage() {
     setName(z.name);
     setCode(z.code);
     setWarehouseId(String(z.warehouse_id));
+    setZoneType(z.zone_type);
     setMessage(null);
     setError(null);
   };
@@ -85,7 +101,7 @@ export default function ZonesPage() {
       const zs = await fetchZones();
       setZones(zs);
     } catch (e: any) {
-      setError(e.message || "Ошибка удаления");
+      setError(e.message || "Не удалось удалить зону");
     } finally {
       setLoading(false);
     }
@@ -95,23 +111,33 @@ export default function ZonesPage() {
     <div className="page">
       {message && <Notice tone="success">{message}</Notice>}
       {error && <Notice tone="error">{error}</Notice>}
-      <Card title="Зоны">
+      <Card title="Зоны склада">
         <form className="form" onSubmit={handleSubmit}>
-          <FormField label="Название">
+          <FormField label="Название зоны">
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              placeholder="Зона A"
+              placeholder="Например: Приёмка 1"
             />
           </FormField>
-          <FormField label="Код">
+          <FormField label="Код зоны">
             <input
               value={code}
               onChange={(e) => setCode(e.target.value)}
               required
-              placeholder="A"
+              placeholder="IN-A"
             />
+          </FormField>
+          <FormField label="Тип зоны">
+            <select
+              value={zoneType}
+              onChange={(e) => setZoneType(e.target.value as ZoneType)}
+            >
+              <option value="inbound">Приёмка</option>
+              <option value="storage">Хранение</option>
+              <option value="outbound">Отгрузка</option>
+            </select>
           </FormField>
           <FormField label="Склад">
             <select
@@ -119,7 +145,7 @@ export default function ZonesPage() {
               onChange={(e) => setWarehouseId(e.target.value)}
               required
             >
-              <option value="">Выберите</option>
+              <option value="">Выберите склад</option>
               {warehouses.map((w) => (
                 <option key={w.id} value={w.id}>
                   {w.name} ({w.code})
@@ -129,7 +155,7 @@ export default function ZonesPage() {
           </FormField>
           <div className="actions-row">
             <button type="submit" disabled={loading}>
-              {loading ? "Сохраняю..." : editId ? "Сохранить" : "Создать зону"}
+              {loading ? "Сохранение..." : editId ? "Обновить" : "Создать"}
             </button>
             {editId && (
               <button
@@ -140,21 +166,23 @@ export default function ZonesPage() {
                   setName("");
                   setCode("");
                   setWarehouseId("");
+                  setZoneType("storage");
                 }}
               >
-                Отмена
+                Сбросить
               </button>
             )}
           </div>
         </form>
 
-        <div className="table-wrapper">
+        <div className="table-wrapper" style={{ marginTop: 16 }}>
           <table>
             <thead>
               <tr>
                 <th>ID</th>
                 <th>Название</th>
                 <th>Код</th>
+                <th>Тип</th>
                 <th>Склад</th>
                 <th />
               </tr>
@@ -165,6 +193,7 @@ export default function ZonesPage() {
                   <td>{z.id}</td>
                   <td>{z.name}</td>
                   <td>{z.code}</td>
+                  <td>{zoneLabels[z.zone_type] || z.zone_type}</td>
                   <td>{z.warehouse_id}</td>
                   <td style={{ textAlign: "right" }}>
                     <button
@@ -187,8 +216,8 @@ export default function ZonesPage() {
               ))}
               {zones.length === 0 && (
                 <tr>
-                  <td colSpan={5} style={{ textAlign: "center" }}>
-                    Нет зон
+                  <td colSpan={6} style={{ textAlign: "center" }}>
+                    Зон нет
                   </td>
                 </tr>
               )}

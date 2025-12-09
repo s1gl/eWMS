@@ -20,7 +20,7 @@ const navLinks = [
   { to: "/inventory/inbound", label: "Приёмка" },
   { to: "/inventory/move", label: "Перемещение" },
   { to: "/inventory/stock", label: "Остатки" },
-  { to: "/setup-wizard", label: "Мастер склада" },
+  { to: "/setup-warehouse", label: "Мастер склада" },
 ];
 
 export default function App() {
@@ -56,7 +56,7 @@ export default function App() {
           <Route path="/inventory/inbound" element={<InventoryInboundPage />} />
           <Route path="/inventory/move" element={<InventoryMovePage />} />
           <Route path="/inventory/stock" element={<InventoryStockPage />} />
-          <Route path="/setup-wizard" element={<WarehouseSetupWizard />} />
+          <Route path="/setup-warehouse" element={<WarehouseSetupWizard />} />
         </Routes>
       </main>
     </div>
