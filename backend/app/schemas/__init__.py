@@ -10,6 +10,7 @@ from app.schemas.inbound_order import (
     InboundOrderStatusUpdate,
     InboundOrderLineRead,
     InboundReceiveRequest,
+    InboundCloseTareRequest,
 )
 from app.schemas.tare import (
     TareCreate,
@@ -55,6 +56,7 @@ __all__ = [
     "InboundOrderStatusUpdate",
     "InboundOrderLineRead",
     "InboundReceiveRequest",
+    "InboundCloseTareRequest",
     "TareCreate",
     "TareRead",
     "TareTypeCreate",
