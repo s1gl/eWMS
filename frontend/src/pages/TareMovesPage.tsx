@@ -82,7 +82,7 @@ export default function TareMovesPage() {
 
   const handleSearch = async () => {
     if (!tareCode.trim()) {
-      setError("Enter tare code");
+      setError("Введите код тары");
       return;
     }
     setLoading(true);
@@ -93,14 +93,14 @@ export default function TareMovesPage() {
     try {
       const list = await getTares({ code: tareCode.trim() });
       if (!list.length) {
-        setError("Tare not found");
+        setError("Тара не найдена");
         return;
       }
       const found = list[0];
       setTare(found);
       await loadContext(found);
     } catch (e: any) {
-      setError(e.message || "Failed to load tare");
+      setError(e.message || "Не удалось загрузить данные по таре");
     } finally {
       setLoading(false);
     }
@@ -108,15 +108,15 @@ export default function TareMovesPage() {
 
   const handleMove = async () => {
     if (!tare) {
-      setError("Find a tare first");
+      setError("Сначала найдите тару");
       return;
     }
     if (!targetLocationId) {
-      setError("Choose a target location");
+      setError("Выберите целевую ячейку");
       return;
     }
     if (tare.location_id === Number(targetLocationId)) {
-      setError("Tare is already at this location");
+      setError("Тара уже в этой ячейке");
       return;
     }
     setLoading(true);
@@ -126,9 +126,9 @@ export default function TareMovesPage() {
       const updated = await moveTare(tare.id, Number(targetLocationId));
       setTare(updated);
       await loadContext(updated);
-      setMessage("Tare moved");
+      setMessage("Тара перемещена");
     } catch (e: any) {
-      setError(e.message || "Failed to move tare");
+      setError(e.message || "Не удалось переместить тару");
     } finally {
       setLoading(false);
     }
@@ -144,10 +144,9 @@ export default function TareMovesPage() {
       }}
     >
       <div>
-        <h2 style={{ margin: 0 }}>Moves</h2>
+        <h2 style={{ margin: 0 }}>Перемещения тары</h2>
         <p className="muted" style={{ margin: "4px 0 0" }}>
-          Move storage tares between locations. Search by tare code and pick a
-          destination in storage zones.
+          Перемещение тары внутри зоны хранения. Найдите тару по коду и выберите новую ячейку.
         </p>
       </div>
       {error && <Notice tone="error">{error}</Notice>}
@@ -171,64 +170,64 @@ export default function TareMovesPage() {
             minHeight: 0,
           }}
         >
-          <Card title="Find tare" style={{ padding: 10 }}>
+          <Card title="Поиск тары" style={{ padding: 10 }}>
             <div className="form" style={{ margin: 0 }}>
-              <FormField label="Tare code">
+              <FormField label="Код тары">
                 <input
                   value={tareCode}
                   onChange={(e) => setTareCode(e.target.value)}
-                  placeholder="Scan or type code"
+                  placeholder="Отсканируйте или введите код"
                 />
               </FormField>
             </div>
             <div className="actions-row" style={{ marginTop: 8 }}>
               <button type="button" onClick={handleSearch} disabled={loading}>
-                Search
+                Найти
               </button>
             </div>
           </Card>
 
-          <Card title="Current tare" style={{ padding: 10 }}>
+          <Card title="Тара" style={{ padding: 10 }}>
             {tare ? (
               <div style={{ display: "grid", gap: 6 }}>
                 <div>
                   <div className="muted" style={{ fontSize: 13 }}>
-                    Code
+                    Код
                   </div>
                   <div style={{ fontWeight: 600 }}>{tare.tare_code}</div>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                   <div>
                     <div className="muted" style={{ fontSize: 13 }}>
-                      Status
+                      Статус
                     </div>
                     <div>{tare.status}</div>
                   </div>
                   <div>
                     <div className="muted" style={{ fontSize: 13 }}>
-                      Warehouse
+                      Склад
                     </div>
                     <div>#{tare.warehouse_id}</div>
                   </div>
                 </div>
                 <div>
                   <div className="muted" style={{ fontSize: 13 }}>
-                    Location
+                    Текущая ячейка
                   </div>
                   <div>
-                    {sourceLocation ? sourceLocation.code : "No location"}{" "}
+                    {sourceLocation ? sourceLocation.code : "Нет ячейки"}{" "}
                     {sourceZone ? `(${sourceZone.zone_type})` : ""}
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="muted">Search for a tare to begin</div>
+              <div className="muted">Найдите тару, чтобы продолжить</div>
             )}
           </Card>
 
-          <Card title="Move to" style={{ padding: 10 }}>
+          <Card title="Новая ячейка" style={{ padding: 10 }}>
             <div className="form" style={{ gap: 8 }}>
-              <FormField label="Storage zone">
+              <FormField label="Зона хранения">
                 <select
                   value={targetZoneId}
                   onChange={(e) => {
@@ -237,7 +236,7 @@ export default function TareMovesPage() {
                   }}
                   disabled={!tare}
                 >
-                  <option value="">Select zone</option>
+                  <option value="">Выберите зону</option>
                   {storageZones.map((z) => (
                     <option key={z.id} value={z.id}>
                       {z.name} ({z.code})
@@ -245,13 +244,13 @@ export default function TareMovesPage() {
                   ))}
                 </select>
               </FormField>
-              <FormField label="New location">
+              <FormField label="Ячейка назначения">
                 <select
                   value={targetLocationId}
                   onChange={(e) => setTargetLocationId(e.target.value)}
                   disabled={!tare || !targetZoneId}
                 >
-                  <option value="">Select location</option>
+                  <option value="">Выберите ячейку</option>
                   {storageLocations.map((l) => (
                     <option
                       key={l.id}
@@ -267,14 +266,14 @@ export default function TareMovesPage() {
             </div>
             <div className="actions-row" style={{ justifyContent: "flex-end" }}>
               <button type="button" onClick={handleMove} disabled={loading || !tare}>
-                Move
+                Переместить
               </button>
             </div>
           </Card>
         </div>
 
         <Card
-          title="Tare content"
+          title="Содержимое тары"
           style={{
             padding: 10,
             height: "100%",
@@ -289,9 +288,9 @@ export default function TareMovesPage() {
                 <thead>
                   <tr>
                     <th>SKU</th>
-                    <th>Item</th>
-                    <th>Qty</th>
-                    <th>Unit</th>
+                    <th>Товар</th>
+                    <th>Кол-во</th>
+                    <th>Ед.</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -306,7 +305,7 @@ export default function TareMovesPage() {
                   {items.length === 0 && (
                     <tr>
                       <td colSpan={4} style={{ textAlign: "center" }}>
-                        Empty tare
+                        Тара пустая
                       </td>
                     </tr>
                   )}
@@ -314,7 +313,7 @@ export default function TareMovesPage() {
               </table>
             ) : (
               <div className="muted" style={{ padding: 8 }}>
-                Search a tare to see its content
+                Найдите тару, чтобы увидеть содержимое
               </div>
             )}
           </div>

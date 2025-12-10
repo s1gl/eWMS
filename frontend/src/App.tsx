@@ -15,18 +15,18 @@ import PutawayPage from "./pages/PutawayPage";
 import TareMovesPage from "./pages/TareMovesPage";
 
 const navLinks = [
-  { to: "/warehouses", label: "Warehouses" },
-  { to: "/items", label: "Items" },
-  { to: "/zones", label: "Zones" },
-  { to: "/locations", label: "Locations" },
-  { to: "/inbound", label: "Inbound" },
-  { to: "/tares", label: "Tares" },
-  { to: "/putaway", label: "Put-away" },
-  { to: "/moves", label: "Moves" },
-  { to: "/inventory/inbound", label: "Inventory inbound" },
-  { to: "/inventory/move", label: "Inventory move" },
-  { to: "/inventory/stock", label: "Stock" },
-  { to: "/setup-warehouse", label: "Setup" },
+  { to: "/warehouses", label: "Склады" },
+  { to: "/items", label: "Товары" },
+  { to: "/zones", label: "Зоны" },
+  { to: "/locations", label: "Ячейки" },
+  { to: "/inbound", label: "Приёмки" },
+  { to: "/tares", label: "Тары" },
+  { to: "/putaway", label: "Размещение" },
+  { to: "/moves", label: "Перемещения" },
+  { to: "/inventory/inbound", label: "Приход в остатки" },
+  { to: "/inventory/move", label: "Перемещение остатков" },
+  { to: "/inventory/stock", label: "Остатки" },
+  { to: "/setup-warehouse", label: "Мастер склада" },
 ];
 
 

@@ -42,7 +42,7 @@ export default function PutawayPage() {
           setSelectedWarehouseId(String(wh[0].id));
         }
       } catch (e: any) {
-        setError(e.message || "Failed to load warehouses");
+        setError(e.message || "Не удалось загрузить список складов");
       }
     };
     init();
@@ -74,7 +74,7 @@ export default function PutawayPage() {
       setStorageZoneId(firstStorage ? String(firstStorage.id) : "");
       setStorageLocationId("");
     } catch (e: any) {
-      setError(e.message || "Failed to load put-away data");
+      setError(e.message || "Не удалось загрузить данные для размещения");
     } finally {
       setListLoading(false);
     }
@@ -137,7 +137,7 @@ export default function PutawayPage() {
         setStorageZoneId(String(storageZones[0].id));
       }
     } catch (e: any) {
-      setError(e.message || "Failed to load tare items");
+      setError(e.message || "Не удалось получить содержимое тары");
     } finally {
       setLoading(false);
     }
@@ -145,11 +145,11 @@ export default function PutawayPage() {
 
   const handlePutaway = async () => {
     if (!selectedTare) {
-      setError("Select a tare first");
+      setError("Сначала выберите тару");
       return;
     }
     if (!storageLocationId) {
-      setError("Choose a storage location");
+      setError("Выберите ячейку хранения");
       return;
     }
     setLoading(true);
@@ -157,10 +157,10 @@ export default function PutawayPage() {
     setMessage(null);
     try {
       await putawayTare(selectedTare.id, Number(storageLocationId));
-      setMessage("Tare moved to storage");
+      setMessage("Тара успешно размещена в хранении");
       await loadReference(selectedTare.warehouse_id);
     } catch (e: any) {
-      setError(e.message || "Failed to put-away tare");
+      setError(e.message || "Не удалось разместить тару");
     } finally {
       setLoading(false);
     }
@@ -176,10 +176,10 @@ export default function PutawayPage() {
       }}
     >
       <div>
-        <h2 style={{ margin: 0 }}>Put-away</h2>
+        <h2 style={{ margin: 0 }}>Размещение тары</h2>
         <p className="muted" style={{ margin: "4px 0 0" }}>
-          Move received tares from inbound to storage locations. Lists refresh
-          after each placement.
+          Перемещение принятой тары из зоны приёмки на складские ячейки.
+          После размещения списки обновляются автоматически.
         </p>
       </div>
       {error && <Notice tone="error">{error}</Notice>}
@@ -204,9 +204,9 @@ export default function PutawayPage() {
             minHeight: 0,
           }}
         >
-          <Card title="Inbound tares" style={{ padding: 10, flex: 1, minHeight: 0 }}>
+          <Card title="Тары в зоне приёмки" style={{ padding: 10, flex: 1, minHeight: 0 }}>
             <div className="form" style={{ marginBottom: 8 }}>
-              <FormField label="Warehouse">
+              <FormField label="Склад">
                 <select
                   value={selectedWarehouseId}
                   onChange={(e) => setSelectedWarehouseId(e.target.value)}
@@ -230,9 +230,9 @@ export default function PutawayPage() {
                 background: "#f8fafc",
               }}
             >
-              {listLoading && <div className="muted">Loading...</div>}
+              {listLoading && <div className="muted">Загрузка...</div>}
               {!listLoading && tares.length === 0 && (
-                <div className="muted">No tares in inbound zone</div>
+                <div className="muted">В зоне приёмки нет тары</div>
               )}
               {!listLoading &&
                 tares.map((t) => {
@@ -256,7 +256,7 @@ export default function PutawayPage() {
                     >
                       <div style={{ fontWeight: 600 }}>{t.tare_code}</div>
                       <div className="muted" style={{ fontSize: 13 }}>
-                        {loc ? `Loc: ${loc.code}` : "No location"}{" "}
+                        {loc ? `Ячейка: ${loc.code}` : "Нет ячейки"}{" "}
                         {zn ? `(${zn.zone_type})` : ""}
                       </div>
                     </div>
@@ -265,9 +265,9 @@ export default function PutawayPage() {
             </div>
           </Card>
 
-          <Card title="Placement" style={{ padding: 10 }}>
+          <Card title="Параметры размещения" style={{ padding: 10 }}>
             <div className="form" style={{ gap: 8 }}>
-              <FormField label="Storage zone">
+              <FormField label="Зона хранения">
                 <select
                   value={storageZoneId}
                   onChange={(e) => {
@@ -275,7 +275,7 @@ export default function PutawayPage() {
                     setStorageLocationId("");
                   }}
                 >
-                  <option value="">Select zone</option>
+                  <option value="">Выберите зону</option>
                   {storageZones.map((z) => (
                     <option key={z.id} value={z.id}>
                       {z.name} ({z.code})
@@ -283,13 +283,13 @@ export default function PutawayPage() {
                   ))}
                 </select>
               </FormField>
-              <FormField label="Storage location">
+              <FormField label="Ячейка хранения">
                 <select
                   value={storageLocationId}
                   onChange={(e) => setStorageLocationId(e.target.value)}
                   disabled={!storageZoneId}
                 >
-                  <option value="">Select location</option>
+                  <option value="">Выберите ячейку</option>
                   {storageLocations.map((l) => (
                     <option key={l.id} value={l.id}>
                       {l.code}
@@ -304,24 +304,24 @@ export default function PutawayPage() {
                 onClick={handlePutaway}
                 disabled={loading || !selectedTare}
               >
-                Place tare
+                Разместить тару
               </button>
             </div>
           </Card>
 
-          <Card title="Selected tare" style={{ padding: 10 }}>
+          <Card title="Выбранная тара" style={{ padding: 10 }}>
             {selectedTare ? (
               <div style={{ display: "grid", gap: 6 }}>
                 <div>
                   <div className="muted" style={{ fontSize: 13 }}>
-                    Code
+                    Код
                   </div>
                   <div style={{ fontWeight: 600 }}>{selectedTare.tare_code}</div>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                   <div>
                     <div className="muted" style={{ fontSize: 13 }}>
-                      Warehouse
+                      Склад
                     </div>
                     <div>
                       {selectedWarehouse
@@ -331,29 +331,29 @@ export default function PutawayPage() {
                   </div>
                   <div>
                     <div className="muted" style={{ fontSize: 13 }}>
-                      Status
+                      Статус
                     </div>
                     <div>{selectedTare.status}</div>
                   </div>
                 </div>
                 <div>
                   <div className="muted" style={{ fontSize: 13 }}>
-                    Current location
+                    Текущая ячейка
                   </div>
                   <div>
-                    {sourceLocation ? sourceLocation.code : "No location"}{" "}
+                    {sourceLocation ? sourceLocation.code : "Нет ячейки"}{" "}
                     {sourceZone ? `(${sourceZone.zone_type})` : ""}
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="muted">Pick a tare from the list</div>
+              <div className="muted">Выберите тару слева</div>
             )}
           </Card>
         </div>
 
         <Card
-          title="Tare content"
+          title="Содержимое тары"
           style={{
             padding: 10,
             height: "100%",
@@ -368,9 +368,9 @@ export default function PutawayPage() {
                 <thead>
                   <tr>
                     <th>SKU</th>
-                    <th>Item</th>
-                    <th>Qty</th>
-                    <th>Unit</th>
+                    <th>Товар</th>
+                    <th>Кол-во</th>
+                    <th>Ед.</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -385,7 +385,7 @@ export default function PutawayPage() {
                   {tareItems.length === 0 && (
                     <tr>
                       <td colSpan={4} style={{ textAlign: "center" }}>
-                        Empty tare
+                        Тара пустая
                       </td>
                     </tr>
                   )}
@@ -393,7 +393,7 @@ export default function PutawayPage() {
               </table>
             ) : (
               <div className="muted" style={{ padding: 8 }}>
-                Select a tare to inspect items
+                Выберите тару, чтобы увидеть содержимое
               </div>
             )}
           </div>
