@@ -284,14 +284,14 @@ export default function InventoryInboundPage() {
 
       {order && (
         <div
-          className="grid"
           style={{
             display: "grid",
-            gridTemplateColumns: "1fr 2fr",
+            gridTemplateColumns: "minmax(320px, 1fr) 2fr",
             gap: "16px",
+            alignItems: "start",
           }}
         >
-          <div className="stack" style={{ display: "grid", gap: "12px" }}>
+          <div style={{ display: "grid", gap: "12px", alignItems: "start" }}>
             <Card title="Тара">
               <FormField label="Тара">
                 <select
