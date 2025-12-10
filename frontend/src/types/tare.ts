@@ -19,3 +19,13 @@ export type Tare = {
   created_at?: string | null;
   updated_at?: string | null;
 };
+
+export type TareItemWithItem = {
+  id: number;
+  tare_id: number;
+  item_id: number;
+  quantity: number;
+  item_sku: string;
+  item_name: string;
+  item_unit: string;
+};

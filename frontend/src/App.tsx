@@ -11,19 +11,22 @@ import InboundListPage from "./pages/InboundListPage";
 import InboundCreatePage from "./pages/InboundCreatePage";
 import InboundDetailPage from "./pages/InboundDetailPage";
 import TaresPage from "./pages/TaresPage";
+import PutawayPage from "./pages/PutawayPage";
 
 const navLinks = [
-  { to: "/warehouses", label: "Склады" },
-  { to: "/items", label: "Товары" },
-  { to: "/zones", label: "Зоны" },
-  { to: "/locations", label: "Ячейки" },
-  { to: "/inbound", label: "Поставки" },
-  { to: "/tares", label: "Тары" },
-  { to: "/inventory/inbound", label: "Приёмка" },
-  { to: "/inventory/move", label: "Перемещение" },
-  { to: "/inventory/stock", label: "Остатки" },
-  { to: "/setup-warehouse", label: "Мастер склада" },
+  { to: "/warehouses", label: "Warehouses" },
+  { to: "/items", label: "Items" },
+  { to: "/zones", label: "Zones" },
+  { to: "/locations", label: "Locations" },
+  { to: "/inbound", label: "Inbound" },
+  { to: "/tares", label: "Tares" },
+  { to: "/putaway", label: "Put-away" },
+  { to: "/inventory/inbound", label: "Inventory inbound" },
+  { to: "/inventory/move", label: "Inventory move" },
+  { to: "/inventory/stock", label: "Stock" },
+  { to: "/setup-warehouse", label: "Setup" },
 ];
+
 
 export default function App() {
   return (
@@ -55,6 +58,7 @@ export default function App() {
           <Route path="/inbound/new" element={<InboundCreatePage />} />
           <Route path="/inbound/:id" element={<InboundDetailPage />} />
           <Route path="/tares" element={<TaresPage />} />
+          <Route path="/putaway" element={<PutawayPage />} />
           <Route
             path="/inventory"
             element={<Navigate to="/inventory/inbound" replace />}
@@ -72,3 +76,4 @@ export default function App() {
     </div>
   );
 }
+

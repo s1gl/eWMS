@@ -1,5 +1,5 @@
 import { request } from "./client";
-import { Tare, TareStatus, TareType } from "../types/tare";
+import { Tare, TareItemWithItem, TareStatus, TareType } from "../types/tare";
 
 type TareParams = {
   warehouse_id?: number;
@@ -32,6 +32,9 @@ export const getTares = (params: TareParams = {}) => {
   return request<Tare[]>(`/tares${qs ? `?${qs}` : ""}`);
 };
 
+export const getTareItems = (tareId: number) =>
+  request<TareItemWithItem[]>(`/tares/${tareId}/items`);
+
 export const createTare = (payload: {
   warehouse_id: number;
   type_id: number;
@@ -53,4 +56,17 @@ export const createTaresBulk = (payload: {
   request<Tare[]>("/tares/bulk", {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+
+export const getTaresForPutaway = (warehouse_id?: number) => {
+  const params = new URLSearchParams();
+  if (warehouse_id) params.append("warehouse_id", String(warehouse_id));
+  const query = params.toString();
+  return request<Tare[]>(`/tares/for-putaway${query ? `?${query}` : ""}`);
+};
+
+export const putawayTare = (tareId: number, target_location_id: number) =>
+  request<Tare>(`/tares/${tareId}/putaway`, {
+    method: "POST",
+    body: JSON.stringify({ target_location_id }),
   });
