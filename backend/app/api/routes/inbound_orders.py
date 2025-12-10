@@ -333,6 +333,7 @@ async def close_tare_after_receiving(
         InboundStatus.mis_sort,
         InboundStatus.in_progress,
         InboundStatus.ready_for_receiving,
+        InboundStatus.draft,
     }:
         raise HTTPException(status_code=400, detail="Order must be in receiving to close tare")
 
@@ -360,6 +361,10 @@ async def close_tare_after_receiving(
             status_code=400,
             detail="Принимать можно только в ячейки зоны приёмки",
         )
+
+    # if ещё не в приёмке, переведём в приёмку перед размещением
+    if order.status in {InboundStatus.ready_for_receiving, InboundStatus.draft}:
+        order.status = InboundStatus.receiving
 
     # move tare and update inventory by its items
     await session.refresh(tare, attribute_names=["items"])
