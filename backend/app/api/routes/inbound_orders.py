@@ -39,6 +39,46 @@ async def _get_inbound_with_lines(
     )
 
 
+def _recalculate_order_status(order: InboundOrder) -> None:
+    """
+    Update order status based on line facts:
+    - mis_sort (товар вне заявки) приоритетнее
+    - problem при излишках
+    - completed если все строки приняты без отклонений
+    - иначе оставляем в процессе
+    """
+    has_mis_sort = any(
+        ln.line_status == "mis_sort" or ln.expected_qty == 0 for ln in order.lines
+    )
+    has_over = any(ln.received_qty > ln.expected_qty for ln in order.lines if ln.expected_qty is not None)
+    all_match = (
+        len(order.lines) > 0
+        and not has_mis_sort
+        and not has_over
+        and all(
+            (ln.received_qty or 0) == (ln.expected_qty or 0)
+            for ln in order.lines
+            if ln.expected_qty is not None
+        )
+    )
+
+    if has_mis_sort:
+        order.status = InboundStatus.mis_sort
+    elif has_over:
+        order.status = InboundStatus.problem
+    elif all_match:
+        order.status = InboundStatus.completed
+    else:
+        # keep "in progress" when still working and no problems
+        if order.status in {
+            InboundStatus.draft,
+            InboundStatus.problem,
+            InboundStatus.mis_sort,
+            InboundStatus.in_progress,
+        }:
+            order.status = InboundStatus.in_progress
+
+
 @router.post("", response_model=InboundOrderRead, status_code=status.HTTP_201_CREATED)
 async def create_inbound_order(
     payload: InboundOrderCreate, session: AsyncSession = Depends(get_session)
@@ -327,7 +367,6 @@ async def receive_inbound_line(
         line.received_qty += payload.qty
         if line.received_qty > line.expected_qty:
             line.line_status = "over_received"
-            order.status = InboundStatus.problem
         elif payload.condition:
             line.line_status = payload.condition
 
@@ -339,6 +378,7 @@ async def receive_inbound_line(
         elif line.received_qty > 0:
             line.line_status = "partially_received"
 
+    _recalculate_order_status(order)
     await session.commit()
     await session.refresh(order)
     await session.refresh(order, attribute_names=["lines"])
