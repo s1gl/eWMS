@@ -18,12 +18,21 @@ type ReceiveForm = {
   line_id: string;
   item_id: string;
   qty: string;
-  location_id: string;
   tare_id: string;
+  condition: string;
+  placement_location_id: string;
 };
 
 const statusLabels: Record<InboundStatus, string> = {
-  draft: "Готова к приёмке",`r`n  in_progress: "В приёмке",`r`n  completed: "Принята",`r`n  cancelled: "Отменена",`r`n  problem: "Проблема",`r`n  mis_sort: "Пересорт",
+  ready_for_receiving: "Готова к приёмке",
+  receiving: "В приёмке",
+  received: "Принята",
+  cancelled: "Отменена",
+  problem: "Проблема",
+  mis_sort: "Пересорт",
+  draft: "Готова к приёмке",
+  in_progress: "В приёмке",
+  completed: "Принята",
 };
 
 export default function InventoryInboundPage() {
@@ -40,8 +49,9 @@ export default function InventoryInboundPage() {
     line_id: "",
     item_id: "",
     qty: "",
-    location_id: "",
     tare_id: "",
+    condition: "good",
+    placement_location_id: "",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -98,10 +108,11 @@ export default function InventoryInboundPage() {
         line_id: firstLine ? String(firstLine.id) : "",
         item_id: firstLine ? String(firstLine.item_id) : "",
         qty: "",
-        location_id: inboundLocationsFrom(locs, zn)[0]?.id
+        tare_id: tr[0]?.id ? String(tr[0].id) : "",
+        condition: "good",
+        placement_location_id: inboundLocationsFrom(locs, zn)[0]?.id
           ? String(inboundLocationsFrom(locs, zn)[0].id)
           : "",
-        tare_id: tr[0]?.id ? String(tr[0].id) : "",
       });
     } catch (e: any) {
       setError(e.message || "РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ РїРѕСЃС‚Р°РІРєСѓ");
@@ -123,12 +134,10 @@ export default function InventoryInboundPage() {
     if (!order) return;
     const lineId = Number(form.line_id);
     const qty = Number(form.qty);
-    const locationId = Number(form.location_id);
     const tareId = Number(form.tare_id);
-    if (!lineId) return setError("Р’С‹Р±РµСЂРёС‚Рµ СЃС‚СЂРѕРєСѓ РїРѕСЃС‚Р°РІРєРё");
-    if (!locationId) return setError("Р’С‹Р±РµСЂРёС‚Рµ СЏС‡РµР№РєСѓ РїСЂРёС‘РјРєРё");
-    if (!tareId) return setError("Р’С‹Р±РµСЂРёС‚Рµ С‚Р°СЂСѓ");
-    if (!qty || qty <= 0) return setError("РљРѕР»РёС‡РµСЃС‚РІРѕ РґРѕР»Р¶РЅРѕ Р±С‹С‚СЊ Р±РѕР»СЊС€Рµ РЅСѓР»СЏ");
+    if (!lineId) return setError("Выберите строку поставки");
+    if (!tareId) return setError("Выберите тару");
+    if (!qty || qty <= 0) return setError("Количество должно быть больше нуля");
 
     setLoading(true);
     setError(null);
@@ -136,23 +145,22 @@ export default function InventoryInboundPage() {
     try {
       const updated = await receiveInboundLine(order.id, {
         line_id: lineId,
-        location_id: locationId,
         qty,
         tare_id: tareId,
+        condition: form.condition,
       });
       setOrder(updated);
-      setMessage("РџСЂРёС‘РјРєР° РІС‹РїРѕР»РЅРµРЅР°");
+      setMessage("Приёмка выполнена");
       setForm((prev) => ({ ...prev, qty: "" }));
       const tr = await getTares({ warehouse_id: order.warehouse_id });
       setTares(tr);
     } catch (e: any) {
-      setError(e.message || "РќРµ СѓРґР°Р»РѕСЃСЊ РІС‹РїРѕР»РЅРёС‚СЊ РїСЂРёС‘РјРєСѓ");
+      setError(e.message || "Не удалось выполнить приёмку");
     } finally {
       setLoading(false);
     }
   };
-
-  const handleCreateTare = async () => {
+const handleCreateTare = async () => {
     if (!order) return;
     if (!newTareTypeId) {
       setError("Р’С‹Р±РµСЂРёС‚Рµ С‚РёРї С‚Р°СЂС‹");
@@ -177,7 +185,34 @@ export default function InventoryInboundPage() {
     }
   };
 
-  const activeOrders = orders.filter((o) => o.status === "in_progress");
+  const handleCloseTare = async () => {
+    if (!order) return;
+    const tareId = Number(form.tare_id);
+    const placeId = Number(form.placement_location_id);
+    if (!tareId) return setError("Выберите тару для размещения");
+    if (!placeId) return setError("Выберите ячейку приёмки");
+    setLoading(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const updated = await closeInboundTare(order.id, {
+        tare_id: tareId,
+        placement_location_id: placeId,
+      });
+      setOrder(updated);
+      setMessage("Тара размещена на приёмке");
+      const tr = await getTares({ warehouse_id: order.warehouse_id });
+      setTares(tr);
+    } catch (e: any) {
+      setError(e.message || "Не удалось закрыть тару");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const activeOrders = orders.filter(
+    (o) => o.status === "receiving" || o.status === "in_progress"
+  );
 
   const selectedLine = order?.lines.find((l) => l.id === Number(form.line_id));
   const item = items.find((i) => i.id === selectedLine?.item_id);
@@ -304,8 +339,8 @@ export default function InventoryInboundPage() {
               </FormField>
               <FormField label="РЇС‡РµР№РєР° Р·РѕРЅС‹ РїСЂРёС‘РјРєРё">
                 <select
-                  value={form.location_id}
-                  onChange={(e) => setForm((prev) => ({ ...prev, location_id: e.target.value }))}
+                  value={form.placement_location_id}
+                  onChange={(e) => setForm((prev) => ({ ...prev, placement_location_id: e.target.value }))}
                 >
                   <option value="">Р’С‹Р±РµСЂРёС‚Рµ СЏС‡РµР№РєСѓ РїСЂРёС‘РјРєРё</option>
                   {inboundLocations.map((loc) => {
@@ -341,7 +376,7 @@ export default function InventoryInboundPage() {
                     loading ||
                     !form.order_id ||
                     !form.line_id ||
-                    !form.location_id ||
+                    !form.placement_location_id ||
                     !form.tare_id
                   }
                 >

@@ -7,7 +7,13 @@ from .item import Item
 from .inventory import Inventory
 from .movement import Movement
 from .partner import Partner, PartnerType
-from .inbound_order import InboundOrder, InboundOrderLine, InboundStatus
+from .inbound_order import (
+    InboundOrder,
+    InboundOrderLine,
+    InboundStatus,
+    InboundCondition,
+    InboundReceipt,
+)
 from .outbound_order import OutboundOrder, OutboundOrderLine, OutboundStatus
 from .picking import PickingTask, PickingTaskLine, PickingStatus
 from .tare import Tare, TareItem, TareType, TareStatus
@@ -30,6 +36,8 @@ __all__ = [
     "TareStatus",
     "InboundOrder",
     "InboundOrderLine",
+    "InboundCondition",
+    "InboundReceipt",
     "InboundStatus",
     "OutboundOrder",
     "OutboundOrderLine",

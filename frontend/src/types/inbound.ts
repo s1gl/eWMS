@@ -1,10 +1,14 @@
 export type InboundStatus =
-  | "draft"
-  | "in_progress"
-  | "completed"
+  | "ready_for_receiving"
+  | "receiving"
+  | "received"
   | "cancelled"
   | "problem"
-  | "mis_sort";
+  | "mis_sort"
+  // legacy for compatibility
+  | "draft"
+  | "in_progress"
+  | "completed";
 
 export type InboundOrderLine = {
   id: number;
@@ -38,6 +42,7 @@ export type InboundOrderCreate = {
   warehouse_id: number;
   partner_id?: number | null;
   lines: InboundOrderLineCreate[];
+  status?: InboundStatus;
 };
 
 export type InboundStatusUpdate = {
@@ -45,10 +50,14 @@ export type InboundStatusUpdate = {
 };
 
 export type InboundReceivePayload = {
-  line_id: number;
-  location_id: number;
+  line_id?: number;
   qty: number;
   item_id?: number;
-  condition?: string;
   tare_id: number;
+  condition?: "good" | "defect" | "quarantine" | string;
+};
+
+export type InboundCloseTarePayload = {
+  tare_id: number;
+  location_id: number;
 };

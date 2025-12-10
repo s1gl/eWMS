@@ -36,7 +36,17 @@ async def create_item(
 
 
 @router.get("", response_model=list[ItemRead])
-async def list_items(session: AsyncSession = Depends(get_session)):
-    result = await session.execute(select(Item))
+async def list_items(
+    barcode: str | None = None,
+    query: str | None = None,
+    session: AsyncSession = Depends(get_session),
+):
+    stmt = select(Item)
+    if barcode:
+        stmt = stmt.where(Item.barcode == barcode)
+    if query:
+        ilike = f"%{query}%"
+        stmt = stmt.where((Item.sku.ilike(ilike)) | (Item.barcode.ilike(ilike)) | (Item.name.ilike(ilike)))
+    result = await session.execute(stmt)
     return result.scalars().all()
 

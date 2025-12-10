@@ -4,6 +4,7 @@ import {
   InboundOrderCreate,
   InboundReceivePayload,
   InboundStatusUpdate,
+  InboundCloseTarePayload,
 } from "../types/inbound";
 
 export const getInboundOrders = (params: {
@@ -36,6 +37,12 @@ export const changeInboundStatus = (id: number, payload: InboundStatusUpdate) =>
 
 export const receiveInboundLine = (id: number, payload: InboundReceivePayload) =>
   request<InboundOrder>(`/inbound_orders/${id}/receive`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+export const closeInboundTare = (id: number, payload: InboundCloseTarePayload) =>
+  request<InboundOrder>(`/inbound_orders/${id}/close_tare`, {
     method: "POST",
     body: JSON.stringify(payload),
   });

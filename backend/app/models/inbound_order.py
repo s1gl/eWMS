@@ -14,12 +14,22 @@ from app.db.base import Base
 
 
 class InboundStatus(str, enum.Enum):
-    draft = "draft"
-    in_progress = "in_progress"
-    completed = "completed"
+    ready_for_receiving = "ready_for_receiving"
+    receiving = "receiving"
+    received = "received"
     cancelled = "cancelled"
     problem = "problem"
     mis_sort = "mis_sort"
+    # legacy values kept for backward compatibility with existing data/tests
+    draft = "draft"
+    in_progress = "in_progress"
+    completed = "completed"
+
+
+class InboundCondition(str, enum.Enum):
+    good = "good"
+    defect = "defect"
+    quarantine = "quarantine"
 
 
 class InboundOrder(Base):
@@ -33,7 +43,12 @@ class InboundOrder(Base):
     partner_id = Column(
         Integer, ForeignKey("partners.id", ondelete="SET NULL"), nullable=True
     )
-    status = Column(Enum(InboundStatus), nullable=False, default=InboundStatus.draft)
+    status = Column(
+        Enum(InboundStatus, name="inboundstatus"),
+        nullable=False,
+        default=InboundStatus.ready_for_receiving,
+        server_default=InboundStatus.ready_for_receiving.value,
+    )
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -63,3 +78,18 @@ class InboundOrderLine(Base):
     line_status = Column(String(50), nullable=True)
 
     order = relationship("InboundOrder", back_populates="lines")
+
+
+class InboundReceipt(Base):
+    __tablename__ = "inbound_receipts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    inbound_order_id = Column(
+        Integer, ForeignKey("inbound_orders.id", ondelete="CASCADE"), nullable=False
+    )
+    line_id = Column(Integer, ForeignKey("inbound_order_lines.id", ondelete="SET NULL"), nullable=True)
+    tare_id = Column(Integer, ForeignKey("tares.id", ondelete="CASCADE"), nullable=False)
+    item_id = Column(Integer, ForeignKey("items.id", ondelete="CASCADE"), nullable=False)
+    quantity = Column(Integer, nullable=False, default=0)
+    condition = Column(Enum(InboundCondition, name="inboundcondition"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

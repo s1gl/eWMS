@@ -8,6 +8,7 @@ from app.models import (
     InboundOrder,
     InboundOrderLine,
     InboundStatus,
+    InboundReceipt,
     Inventory,
     Movement,
     Warehouse,
@@ -17,12 +18,14 @@ from app.models import (
     Tare,
     TareItem,
     ZoneType,
+    TareStatus,
 )
 from app.schemas import (
     InboundOrderCreate,
     InboundOrderRead,
     InboundOrderStatusUpdate,
     InboundReceiveRequest,
+    InboundCloseTareRequest,
 )
 from app.services.inventory import increment_inventory
 
@@ -41,11 +44,7 @@ async def _get_inbound_with_lines(
 
 def _recalculate_order_status(order: InboundOrder) -> None:
     """
-    Update order status based on line facts:
-    - mis_sort (товар вне заявки) приоритетнее
-    - problem при излишках
-    - completed если все строки приняты без отклонений
-    - иначе оставляем в процессе
+    Update order status based on line facts.
     """
     has_mis_sort = any(
         ln.line_status == "mis_sort" or ln.expected_qty == 0 for ln in order.lines
@@ -67,16 +66,9 @@ def _recalculate_order_status(order: InboundOrder) -> None:
     elif has_over:
         order.status = InboundStatus.problem
     elif all_match:
-        order.status = InboundStatus.completed
+        order.status = InboundStatus.received
     else:
-        # keep "in progress" when still working and no problems
-        if order.status in {
-            InboundStatus.draft,
-            InboundStatus.problem,
-            InboundStatus.mis_sort,
-            InboundStatus.in_progress,
-        }:
-            order.status = InboundStatus.in_progress
+        order.status = InboundStatus.receiving
 
 
 @router.post("", response_model=InboundOrderRead, status_code=status.HTTP_201_CREATED)
@@ -124,11 +116,12 @@ async def create_inbound_order(
                     detail=f"Location {loc.id} does not belong to warehouse {payload.warehouse_id}",
                 )
 
+    status_value = payload.status or InboundStatus.ready_for_receiving
     order = InboundOrder(
         external_number=payload.external_number,
         warehouse_id=payload.warehouse_id,
         partner_id=payload.partner_id,
-        status=InboundStatus.draft,
+        status=status_value,
     )
     order.lines = []
     for line in payload.lines:
@@ -192,17 +185,26 @@ async def update_inbound_status(
         raise HTTPException(status_code=404, detail="Inbound order not found")
 
     transitions = {
-        InboundStatus.draft: {InboundStatus.in_progress, InboundStatus.cancelled},
-        InboundStatus.in_progress: {
-            InboundStatus.completed,
+        InboundStatus.ready_for_receiving: {InboundStatus.receiving, InboundStatus.cancelled},
+        InboundStatus.receiving: {
+            InboundStatus.received,
             InboundStatus.cancelled,
             InboundStatus.problem,
             InboundStatus.mis_sort,
         },
-        InboundStatus.problem: {InboundStatus.completed, InboundStatus.cancelled},
-        InboundStatus.mis_sort: {InboundStatus.completed, InboundStatus.cancelled},
-        InboundStatus.completed: set(),
+        InboundStatus.problem: {InboundStatus.receiving, InboundStatus.cancelled, InboundStatus.received},
+        InboundStatus.mis_sort: {InboundStatus.receiving, InboundStatus.cancelled, InboundStatus.received},
+        InboundStatus.received: set(),
         InboundStatus.cancelled: set(),
+        # legacy compatibility
+        InboundStatus.draft: {InboundStatus.receiving, InboundStatus.cancelled},
+        InboundStatus.in_progress: {
+            InboundStatus.received,
+            InboundStatus.cancelled,
+            InboundStatus.problem,
+            InboundStatus.mis_sort,
+        },
+        InboundStatus.completed: set(),
     }
 
     if payload.status == order.status:
@@ -211,56 +213,6 @@ async def update_inbound_status(
     allowed = transitions.get(order.status, set())
     if payload.status not in allowed:
         raise HTTPException(status_code=400, detail="Invalid status transition")
-
-    # Apply inventory movements when completing
-    if payload.status == InboundStatus.completed:
-        for line in order.lines:
-            qty = line.received_qty or line.expected_qty
-            if qty <= 0:
-                continue
-            if line.location_id is None:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Location is required to complete inbound order",
-                )
-            location = await session.get(Location, line.location_id)
-            if location is None:
-                raise HTTPException(status_code=404, detail="Location not found")
-            if location.warehouse_id != order.warehouse_id:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Line location does not belong to order warehouse",
-                )
-
-            inv = (
-                await session.execute(
-                    select(Inventory).where(
-                        Inventory.warehouse_id == order.warehouse_id,
-                        Inventory.location_id == line.location_id,
-                        Inventory.item_id == line.item_id,
-                    )
-                )
-            ).scalar_one_or_none()
-
-            if inv is None:
-                inv = Inventory(
-                    warehouse_id=order.warehouse_id,
-                    location_id=line.location_id,
-                    item_id=line.item_id,
-                    quantity=qty,
-                )
-                session.add(inv)
-            else:
-                inv.quantity += qty
-
-            movement = Movement(
-                warehouse_id=order.warehouse_id,
-                item_id=line.item_id,
-                from_location_id=None,
-                to_location_id=line.location_id,
-                quantity=qty,
-            )
-            session.add(movement)
 
     order.status = payload.status
     await session.commit()
@@ -279,56 +231,57 @@ async def receive_inbound_line(
     if order is None:
         raise HTTPException(status_code=404, detail="Inbound order not found")
     if order.status not in {
-        InboundStatus.in_progress,
+        InboundStatus.receiving,
         InboundStatus.problem,
         InboundStatus.mis_sort,
+        InboundStatus.in_progress,
     }:
-        raise HTTPException(status_code=400, detail="Order must be in progress to receive")
-
-    line = next((ln for ln in order.lines if ln.id == payload.line_id), None)
-    if line is None:
-        raise HTTPException(status_code=404, detail="Line not found in this order")
-
-    actual_item_id = payload.item_id or line.item_id
-
-    # validate location belongs to warehouse and is inbound zone
-    location = (
-        await session.execute(
-            select(Location).options(selectinload(Location.zone)).where(Location.id == payload.location_id)
-        )
-    ).scalar_one_or_none()
-    if location is None:
-        raise HTTPException(status_code=404, detail="Location not found")
-    if location.warehouse_id != order.warehouse_id:
-        raise HTTPException(status_code=400, detail="Location not in order warehouse")
-    if location.zone is None or location.zone.zone_type != ZoneType.inbound:
-        raise HTTPException(
-            status_code=400,
-            detail="Нельзя принимать товар в ячейку не из зоны приёмки",
-        )
+        raise HTTPException(status_code=400, detail="Order must be in receiving to accept items")
 
     tare = await session.get(Tare, payload.tare_id)
     if tare is None:
         raise HTTPException(status_code=404, detail="Tare not found")
     if tare.warehouse_id != order.warehouse_id:
         raise HTTPException(status_code=400, detail="Tare does not belong to order warehouse")
-    tare.location_id = payload.location_id
-    tare.warehouse_id = order.warehouse_id
+    if tare.status == TareStatus.closed:
+        raise HTTPException(status_code=400, detail="Tare is already closed for receiving")
 
-    # validate item exists
+    line = None
+    if payload.line_id:
+        line = next((ln for ln in order.lines if ln.id == payload.line_id), None)
+        if line is None:
+            raise HTTPException(status_code=404, detail="Line not found in this order")
+    elif payload.item_id:
+        line = next((ln for ln in order.lines if ln.item_id == payload.item_id), None)
+
+    actual_item_id = payload.item_id or (line.item_id if line else None)
+    if actual_item_id is None:
+        raise HTTPException(status_code=400, detail="Item is required to receive")
+
     item = await session.get(Item, actual_item_id)
     if item is None:
         raise HTTPException(status_code=404, detail="Item not found")
 
-    # increment inventory
-    await increment_inventory(
-        session,
-        warehouse_id=order.warehouse_id,
-        location_id=payload.location_id,
-        item_id=actual_item_id,
-        qty=payload.qty,
-        tare_id=tare.id,
-    )
+    if line is None:
+        line = InboundOrderLine(
+            item_id=actual_item_id,
+            expected_qty=0,
+            received_qty=payload.qty,
+            location_id=None,
+            line_status="mis_sort",
+        )
+        order.lines.append(line)
+    else:
+        line.received_qty += payload.qty
+        if line.received_qty > line.expected_qty:
+            line.line_status = "over_received"
+        elif payload.condition:
+            line.line_status = payload.condition.value if hasattr(payload.condition, "value") else str(payload.condition)
+        if line.line_status not in {"mis_sort", "over_received"}:
+            if line.received_qty == line.expected_qty:
+                line.line_status = "fully_received"
+            elif line.received_qty > 0:
+                line.line_status = "partially_received"
 
     tare_item = (
         await session.execute(
@@ -348,36 +301,79 @@ async def receive_inbound_line(
     else:
         tare_item.quantity += payload.qty
 
-    # Если пришёл другой товар — создаём отдельную строку пересорта
-    if payload.item_id and payload.item_id != line.item_id:
-        mis_line = InboundOrderLine(
-            item_id=payload.item_id,
-            expected_qty=0,
-            received_qty=payload.qty,
-            location_id=payload.location_id,
-            line_status="mis_sort",
+    receipt = InboundReceipt(
+        inbound_order_id=order.id,
+        line_id=line.id if line else None,
+        tare_id=tare.id,
+        item_id=actual_item_id,
+        quantity=payload.qty,
+        condition=payload.condition,
+    )
+    session.add(receipt)
+
+    _recalculate_order_status(order)
+    await session.commit()
+    await session.refresh(order)
+    await session.refresh(order, attribute_names=["lines"])
+    return order
+
+
+@router.post("/{order_id}/close_tare", response_model=InboundOrderRead)
+async def close_tare_after_receiving(
+    order_id: int,
+    payload: InboundCloseTareRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    order = await _get_inbound_with_lines(session, order_id)
+    if order is None:
+        raise HTTPException(status_code=404, detail="Inbound order not found")
+    if order.status not in {
+        InboundStatus.receiving,
+        InboundStatus.problem,
+        InboundStatus.mis_sort,
+        InboundStatus.in_progress,
+    }:
+        raise HTTPException(status_code=400, detail="Order must be in receiving to close tare")
+
+    tare = await session.get(Tare, payload.tare_id)
+    if tare is None:
+        raise HTTPException(status_code=404, detail="Tare not found")
+    if tare.warehouse_id != order.warehouse_id:
+        raise HTTPException(status_code=400, detail="Tare does not belong to order warehouse")
+    if tare.status == TareStatus.closed:
+        raise HTTPException(status_code=400, detail="Tare already closed")
+    if tare.location_id:
+        raise HTTPException(status_code=400, detail="Tare already placed to a location")
+
+    location = (
+        await session.execute(
+            select(Location).options(selectinload(Location.zone)).where(Location.id == payload.location_id)
         )
-        order.lines.append(mis_line)
-        order.status = InboundStatus.mis_sort
-    else:
-        # persist chosen location on the line to allow completion later
-        if not line.location_id:
-            line.location_id = payload.location_id
+    ).scalar_one_or_none()
+    if location is None:
+        raise HTTPException(status_code=404, detail="Location not found")
+    if location.warehouse_id != order.warehouse_id:
+        raise HTTPException(status_code=400, detail="Location not in order warehouse")
+    if location.zone is None or location.zone.zone_type != ZoneType.inbound:
+        raise HTTPException(
+            status_code=400,
+            detail="Принимать можно только в ячейки зоны приёмки",
+        )
 
-        line.received_qty += payload.qty
-        if line.received_qty > line.expected_qty:
-            line.line_status = "over_received"
-        elif payload.condition:
-            line.line_status = payload.condition
+    # move tare and update inventory by its items
+    await session.refresh(tare, attribute_names=["items"])
+    tare.location_id = payload.location_id
+    for ti in tare.items:
+        await increment_inventory(
+            session,
+            warehouse_id=order.warehouse_id,
+            location_id=payload.location_id,
+            item_id=ti.item_id,
+            qty=ti.quantity,
+            tare_id=tare.id,
+        )
 
-        # update line status
-        if line.line_status in {"mis_sort", "over_received"}:
-            pass
-        elif line.received_qty == line.expected_qty:
-            line.line_status = "fully_received"
-        elif line.received_qty > 0:
-            line.line_status = "partially_received"
-
+    tare.status = TareStatus.closed
     _recalculate_order_status(order)
     await session.commit()
     await session.refresh(order)

@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.inbound_order import InboundStatus
+from app.models.inbound_order import InboundStatus, InboundCondition
 
 
 class InboundOrderLineCreate(BaseModel):
@@ -31,6 +31,7 @@ class InboundOrderCreate(BaseModel):
     warehouse_id: int
     partner_id: Optional[int] = None
     lines: List[InboundOrderLineCreate]
+    status: Optional[InboundStatus] = None
 
 
 class InboundOrderRead(BaseModel):
@@ -51,9 +52,13 @@ class InboundOrderStatusUpdate(BaseModel):
 
 
 class InboundReceiveRequest(BaseModel):
-    line_id: int
-    location_id: int
+    line_id: Optional[int] = None
     qty: int = Field(gt=0)
-    item_id: Optional[int] = None
-    condition: Optional[str] = None
     tare_id: int
+    item_id: Optional[int] = None
+    condition: Optional[InboundCondition] = None
+
+
+class InboundCloseTareRequest(BaseModel):
+    tare_id: int
+    location_id: int
