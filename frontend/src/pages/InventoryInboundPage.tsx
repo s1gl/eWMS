@@ -1,4 +1,4 @@
-﻿import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import Card from "../components/Card";
 import FormField from "../components/FormField";
 import Notice from "../components/Notice";
@@ -83,7 +83,7 @@ export default function InventoryInboundPage() {
         setItems(it);
         setTareTypes(tt);
       } catch (e: any) {
-        setError(e.message || "РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ РґР°РЅРЅС‹Рµ");
+        setError(e.message || "Не удалось загрузить данные");
       }
     };
     load();
@@ -124,7 +124,7 @@ export default function InventoryInboundPage() {
         placement_location_id: inboundLoc ? String(inboundLoc.id) : "",
       });
     } catch (e: any) {
-      setError(e.message || "РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ РїРѕСЃС‚Р°РІРєСѓ");
+      setError(e.message || "Не удалось загрузить поставку");
     } finally {
       setLoading(false);
     }
@@ -137,9 +137,9 @@ export default function InventoryInboundPage() {
     const itemId = form.item_id ? Number(form.item_id) : undefined;
     const qty = Number(form.qty);
     const tareId = Number(form.tare_id);
-    if (!lineId && !itemId) return setError("РЈРєР°Р¶РёС‚Рµ СЃС‚СЂРѕРєСѓ РёР»Рё С‚РѕРІР°СЂ");
-    if (!tareId) return setError("Р’С‹Р±РµСЂРёС‚Рµ С‚Р°СЂСѓ");
-    if (!qty || qty <= 0) return setError("РљРѕР»РёС‡РµСЃС‚РІРѕ РґРѕР»Р¶РЅРѕ Р±С‹С‚СЊ Р±РѕР»СЊС€Рµ РЅСѓР»СЏ");
+    if (!lineId && !itemId) return setError("Укажите строку или товар");
+    if (!tareId) return setError("Выберите тару");
+    if (!qty || qty <= 0) return setError("Количество должно быть больше нуля");
 
     setLoading(true);
     setError(null);
@@ -153,12 +153,12 @@ export default function InventoryInboundPage() {
         condition: form.condition,
       });
       setOrder(updated);
-      setMessage("РџСЂРёС‘РјРєР° РІС‹РїРѕР»РЅРµРЅР°");
+      setMessage("Приёмка выполнена");
       setForm((prev) => ({ ...prev, qty: "" }));
       const tr = await getTares({ warehouse_id: order.warehouse_id });
       setTares(tr);
     } catch (e: any) {
-      setError(e.message || "РќРµ СѓРґР°Р»РѕСЃСЊ РІС‹РїРѕР»РЅРёС‚СЊ РїСЂРёС‘РјРєСѓ");
+      setError(e.message || "Не удалось выполнить приёмку");
     } finally {
       setLoading(false);
     }
@@ -167,7 +167,7 @@ export default function InventoryInboundPage() {
   const handleCreateTare = async () => {
     if (!order) return;
     if (!newTareTypeId) {
-      setError("Р’С‹Р±РµСЂРёС‚Рµ С‚РёРї С‚Р°СЂС‹");
+      setError("Выберите тип тары");
       return;
     }
     setLoading(true);
@@ -181,9 +181,9 @@ export default function InventoryInboundPage() {
       const tr = await getTares({ warehouse_id: order.warehouse_id });
       setTares(tr);
       setForm((prev) => ({ ...prev, tare_id: String(tare.id) }));
-      setMessage("РўР°СЂР° СЃРѕР·РґР°РЅР°");
+      setMessage("Тара создана");
     } catch (e: any) {
-      setError(e.message || "РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕР·РґР°С‚СЊ С‚Р°СЂСѓ");
+      setError(e.message || "Не удалось создать тару");
     } finally {
       setLoading(false);
     }
@@ -193,8 +193,8 @@ export default function InventoryInboundPage() {
     if (!order) return;
     const tareId = Number(form.tare_id);
     const placeId = Number(form.placement_location_id);
-    if (!tareId) return setError("Р’С‹Р±РµСЂРёС‚Рµ С‚Р°СЂСѓ РґР»СЏ СЂР°Р·РјРµС‰РµРЅРёСЏ");
-    if (!placeId) return setError("Р’С‹Р±РµСЂРёС‚Рµ СЏС‡РµР№РєСѓ РїСЂРёС‘РјРєРё");
+    if (!tareId) return setError("Выберите тару для размещения");
+    if (!placeId) return setError("Выберите ячейку приёмки");
     setLoading(true);
     setError(null);
     setMessage(null);
@@ -204,11 +204,11 @@ export default function InventoryInboundPage() {
         location_id: placeId,
       });
       setOrder(updated);
-      setMessage("РўР°СЂР° СЂР°Р·РјРµС‰РµРЅР° РЅР° РїСЂРёС‘РјРєРµ");
+      setMessage("Тара размещена на приёмке");
       const tr = await getTares({ warehouse_id: order.warehouse_id });
       setTares(tr);
     } catch (e: any) {
-      setError(e.message || "РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РєСЂС‹С‚СЊ С‚Р°СЂСѓ");
+      setError(e.message || "Не удалось закрыть тару");
     } finally {
       setLoading(false);
     }
@@ -221,15 +221,15 @@ export default function InventoryInboundPage() {
 
   return (
     <div className="page" style={{ width: "100%" }}>
-      <Card title="РџСЂРёС‘РјРєР° (СЂР°Р±РѕС‚Р° С‡РµСЂРµР· С‚Р°СЂСѓ)">
+      <Card title="Приёмка (работа через тару)">
         <p className="muted">
-          Р’С‹Р±РµСЂРёС‚Рµ РїРѕСЃС‚Р°РІРєСѓ, СЃРѕР·РґР°Р№С‚Рµ РёР»Рё РІС‹Р±РµСЂРёС‚Рµ С‚Р°СЂСѓ, СѓРєР°Р¶РёС‚Рµ С‚РѕРІР°СЂ, РµРіРѕ СЃРѕСЃС‚РѕСЏРЅРёРµ Рё РєРѕР»РёС‡РµСЃС‚РІРѕ. РџРѕСЃР»Рµ Р·Р°РІРµСЂС€РµРЅРёСЏ
-          СЃРµСЃСЃРёРё СЂР°Р·РјРµСЃС‚РёС‚Рµ С‚Р°СЂСѓ РІ СЏС‡РµР№РєРµ Р·РѕРЅС‹ РїСЂРёС‘РјРєРё.
+          Выберите поставку, создайте или выберите тару, укажите товар, его состояние и количество. После завершения
+          сессии разместите тару в ячейке зоны приёмки.
         </p>
         {error && <Notice tone="error">{error}</Notice>}
         {message && <Notice tone="success">{message}</Notice>}
         <div className="form inline">
-          <FormField label="РџРѕСЃС‚Р°РІРєР°">
+          <FormField label="Поставка">
             <select
               value={form.order_id}
               onChange={(e) => {
@@ -238,15 +238,15 @@ export default function InventoryInboundPage() {
                 if (oid) loadOrderDetails(oid);
               }}
             >
-              <option value="">Р’С‹Р±РµСЂРёС‚Рµ РїРѕСЃС‚Р°РІРєСѓ</option>
+              <option value="">Выберите поставку</option>
               {activeOrders.map((o) => (
                 <option key={o.id} value={o.id}>
-                  #{o.id} {o.external_number ? `(${o.external_number})` : ""} вЂ” {statusLabels[o.status] || o.status}
+                  #{o.id} {o.external_number ? `(${o.external_number})` : ""} — {statusLabels[o.status] || o.status}
                 </option>
               ))}
             </select>
           </FormField>
-          <FormField label="РЎС‚СЂРѕРєР° РїРѕСЃС‚Р°РІРєРё">
+          <FormField label="Строка поставки">
             <select
               value={form.line_id}
               onChange={(e) => {
@@ -260,12 +260,12 @@ export default function InventoryInboundPage() {
               }}
               disabled={!order}
             >
-              <option value="">Р’С‹Р±РµСЂРёС‚Рµ СЃС‚СЂРѕРєСѓ</option>
+              <option value="">Выберите строку</option>
               {order?.lines.map((ln) => {
                 const it = items.find((i) => i.id === ln.item_id);
                 return (
                   <option key={ln.id} value={ln.id}>
-                    РЎС‚СЂРѕРєР° #{ln.id} вЂў {it ? it.name : `С‚РѕРІР°СЂ ${ln.item_id}`} вЂў РїСЂРёРЅСЏС‚Рѕ {ln.received_qty}/{ln.expected_qty}
+                    Строка #{ln.id} • {it ? it.name : `товар ${ln.item_id}`} • принято {ln.received_qty}/{ln.expected_qty}
                   </option>
                 );
               })}
@@ -276,14 +276,14 @@ export default function InventoryInboundPage() {
 
       {order && (
         <div className="grid two">
-          <Card title="РўР°СЂР°">
+          <Card title="Тара">
             <div className="table-wrapper">
               <table>
                 <thead>
                   <tr>
-                    <th>РўРёРї</th>
-                    <th>РљРѕРґ</th>
-                    <th>РЇС‡РµР№РєР°</th>
+                    <th>Тип</th>
+                    <th>Код</th>
+                    <th>Ячейка</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -294,14 +294,14 @@ export default function InventoryInboundPage() {
                       <tr key={t.id}>
                         <td>{tt ? tt.name : t.type_id}</td>
                         <td>{t.tare_code}</td>
-                        <td>{loc ? loc.code : "вЂ”"}</td>
+                        <td>{loc ? loc.code : "—"}</td>
                       </tr>
                     );
                   })}
                   {tares.length === 0 && (
                     <tr>
                       <td colSpan={3} style={{ textAlign: "center" }}>
-                        РўР°СЂС‹ РїРѕРєР° РЅРµС‚
+                        Тары пока нет
                       </td>
                     </tr>
                   )}
@@ -309,12 +309,12 @@ export default function InventoryInboundPage() {
               </table>
             </div>
             <div className="form inline" style={{ marginTop: 12 }}>
-              <FormField label="РўРёРї С‚Р°СЂС‹">
+              <FormField label="Тип тары">
                 <select
                   value={newTareTypeId}
                   onChange={(e) => setNewTareTypeId(e.target.value)}
                 >
-                  <option value="">Р’С‹Р±РµСЂРёС‚Рµ С‚РёРї</option>
+                  <option value="">Выберите тип</option>
                   {tareTypes.map((tt) => (
                     <option key={tt.id} value={tt.id}>
                       {tt.name} ({tt.code})
@@ -323,23 +323,23 @@ export default function InventoryInboundPage() {
                 </select>
               </FormField>
               <button type="button" onClick={handleCreateTare} disabled={loading || !order}>
-                РЎРѕР·РґР°С‚СЊ С‚Р°СЂСѓ
+                Создать тару
               </button>
             </div>
           </Card>
 
-          <Card title="РџСЂРёРЅСЏС‚СЊ С‚РѕРІР°СЂ">
+          <Card title="Принять товар">
             <form className="form" onSubmit={handleReceive}>
-              <FormField label="РўРѕРІР°СЂ (РїРѕ СЃС‚СЂРѕРєРµ РёР»Рё РїРѕРёСЃРє SKU/С€С‚СЂРёС…РєРѕРґР°)">
+              <FormField label="Товар (по строке или поиск SKU/штрихкода)">
                 <input
                   value={lineItem ? `${lineItem.name} (${lineItem.sku})` : ""}
-                  placeholder="Р’С‹Р±РµСЂРёС‚Рµ СЃС‚СЂРѕРєСѓ РёР»Рё РЅР°Р№РґРёС‚Рµ С‚РѕРІР°СЂ"
+                  placeholder="Выберите строку или найдите товар"
                   readOnly
                 />
                 <div style={{ marginTop: 8 }}>
                   <input
                     type="text"
-                    placeholder="РџРѕРёСЃРє С‚РѕРІР°СЂР° (SKU, С€С‚СЂРёС…РєРѕРґ, РЅР°Р·РІР°РЅРёРµ)"
+                    placeholder="Поиск товара (SKU, штрихкод, название)"
                     value={itemQuery}
                     onChange={async (e) => {
                       const q = e.target.value;
@@ -355,33 +355,33 @@ export default function InventoryInboundPage() {
                 </div>
               </FormField>
 
-              <FormField label="РЎРѕСЃС‚РѕСЏРЅРёРµ">
+              <FormField label="Состояние">
                 <select
                   value={form.condition}
                   onChange={(e) => setForm((prev) => ({ ...prev, condition: e.target.value }))}
                 >
-                  <option value="good">Р“РѕРґРµРЅ</option>
-                  <option value="defect">Р‘СЂР°Рє</option>
-                  <option value="quarantine">РљР°СЂР°РЅС‚РёРЅ</option>
+                  <option value="good">Годен</option>
+                  <option value="defect">Брак</option>
+                  <option value="quarantine">Карантин</option>
                 </select>
               </FormField>
 
-              <FormField label="РЎРєРѕР»СЊРєРѕ РїСЂРёРЅСЏС‚СЊ">
+              <FormField label="Сколько принять">
                 <input
                   type="number"
                   min={1}
                   value={form.qty}
                   onChange={(e) => setForm((prev) => ({ ...prev, qty: e.target.value }))}
-                  placeholder="РљРѕР»РёС‡РµСЃС‚РІРѕ"
+                  placeholder="Количество"
                 />
               </FormField>
 
-              <FormField label="РўР°СЂР°">
+              <FormField label="Тара">
                 <select
                   value={form.tare_id}
                   onChange={(e) => setForm((prev) => ({ ...prev, tare_id: e.target.value }))}
                 >
-                  <option value="">Р’С‹Р±РµСЂРёС‚Рµ С‚Р°СЂСѓ</option>
+                  <option value="">Выберите тару</option>
                   {tares.map((t) => {
                     const tt = tareTypes.find((x) => x.id === t.type_id);
                     return (
@@ -398,20 +398,20 @@ export default function InventoryInboundPage() {
                   type="submit"
                   disabled={loading || !form.order_id || (!form.line_id && !form.item_id) || !form.tare_id}
                 >
-                  {loading ? "РџСЂРёС‘РјРєР°..." : "РџСЂРёРЅСЏС‚СЊ"}
+                  {loading ? "Приёмка..." : "Принять"}
                 </button>
               </div>
             </form>
           </Card>
 
-          <Card title="РЎРѕС…СЂР°РЅРёС‚СЊ РїСЂРёС‘РјРєСѓ Рё СЂР°Р·РјРµСЃС‚РёС‚СЊ С‚Р°СЂСѓ">
+          <Card title="Сохранить приёмку и разместить тару">
             <div className="form inline">
-              <FormField label="РЇС‡РµР№РєР° Р·РѕРЅС‹ РїСЂРёС‘РјРєРё">
+              <FormField label="Ячейка зоны приёмки">
                 <select
                   value={form.placement_location_id}
                   onChange={(e) => setForm((prev) => ({ ...prev, placement_location_id: e.target.value }))}
                 >
-                  <option value="">Р’С‹Р±РµСЂРёС‚Рµ СЏС‡РµР№РєСѓ РїСЂРёС‘РјРєРё</option>
+                  <option value="">Выберите ячейку приёмки</option>
                   {inboundLocations.map((loc) => {
                     const zone = zones.find((z) => z.id === loc.zone_id);
                     return (
@@ -427,7 +427,7 @@ export default function InventoryInboundPage() {
                 onClick={handleCloseTare}
                 disabled={loading || !form.tare_id || !form.placement_location_id || !order}
               >
-                РЎРѕС…СЂР°РЅРёС‚СЊ РїСЂРёС‘РјРєСѓ
+                Сохранить приёмку
               </button>
             </div>
           </Card>
