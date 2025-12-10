@@ -332,6 +332,7 @@ async def close_tare_after_receiving(
         InboundStatus.problem,
         InboundStatus.mis_sort,
         InboundStatus.in_progress,
+        InboundStatus.ready_for_receiving,
     }:
         raise HTTPException(status_code=400, detail="Order must be in receiving to close tare")
 
