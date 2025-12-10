@@ -21,6 +21,7 @@ from app.schemas.tare import (
     TareItemRead,
     TareItemWithItem,
     TareBulkCreate,
+    TareMoveRequest,
 )
 from app.schemas.outbound_order import (
     OutboundOrderCreate,
@@ -65,6 +66,7 @@ __all__ = [
     "TareBulkCreate",
     "TareItemRead",
     "TareItemWithItem",
+    "TareMoveRequest",
     "OutboundOrderCreate",
     "OutboundOrderRead",
     "OutboundOrderStatusUpdate",

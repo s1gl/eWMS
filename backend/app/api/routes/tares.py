@@ -11,6 +11,8 @@ from app.models import (
     Warehouse,
     Location,
     Item,
+    Zone,
+    ZoneType,
 )
 from app.schemas import (
     TareCreate,
@@ -20,8 +22,10 @@ from app.schemas import (
     TareTypeUpdate,
     TareBulkCreate,
     TareItemWithItem,
+    TareMoveRequest,
 )
 from app.services.tare_code import generate_tare_code
+from app.services.tare_move import move_tare
 
 router = APIRouter(prefix="/tares", tags=["tares"])
 
@@ -96,6 +100,22 @@ async def delete_tare_type(type_id: int, session: AsyncSession = Depends(get_ses
     return None
 
 
+@router.get("/for-putaway", response_model=list[TareRead])
+async def list_tares_for_putaway(
+    warehouse_id: int | None = None, session: AsyncSession = Depends(get_session)
+):
+    stmt = (
+        select(Tare)
+        .join(Location, Tare.location_id == Location.id)
+        .join(Zone, Location.zone_id == Zone.id)
+        .where(Zone.zone_type == ZoneType.inbound)
+    )
+    if warehouse_id:
+        stmt = stmt.where(Tare.warehouse_id == warehouse_id)
+    result = await session.execute(stmt)
+    return result.scalars().all()
+
+
 @router.get("", response_model=list[TareRead])
 async def list_tares(
     warehouse_id: int | None = None,
@@ -146,6 +166,25 @@ async def list_tare_items(tare_id: int, session: AsyncSession = Depends(get_sess
         )
         for ti, item in rows
     ]
+
+
+@router.post("/{tare_id}/putaway", response_model=TareRead)
+async def putaway_tare(
+    tare_id: int,
+    payload: TareMoveRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    tare = await move_tare(
+        session,
+        tare_id,
+        payload.target_location_id,
+        allowed_from_zone_types=["inbound"],
+        allowed_to_zone_types=["storage"],
+    )
+    tare.status = TareStatus.storage
+    await session.commit()
+    await session.refresh(tare)
+    return tare
 
 
 @router.post("", response_model=TareRead, status_code=status.HTTP_201_CREATED)

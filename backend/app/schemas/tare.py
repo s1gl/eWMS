@@ -76,3 +76,7 @@ class TareBulkCreate(BaseModel):
     count: int = 1
     location_id: Optional[int] = None
     parent_tare_id: Optional[int] = None
+
+
+class TareMoveRequest(BaseModel):
+    target_location_id: int
