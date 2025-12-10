@@ -15,19 +15,20 @@ import PutawayPage from "./pages/PutawayPage";
 import TareMovesPage from "./pages/TareMovesPage";
 
 const navLinks = [
-  { to: "/warehouses", label: "Склады" },
-  { to: "/items", label: "Товары" },
-  { to: "/zones", label: "Зоны" },
-  { to: "/locations", label: "Ячейки" },
-  { to: "/inbound", label: "Приёмки" },
-  { to: "/tares", label: "Тары" },
-  { to: "/putaway", label: "Размещение" },
-  { to: "/moves", label: "Перемещения" },
-  { to: "/inventory/inbound", label: "Приход в остатки" },
-  { to: "/inventory/move", label: "Перемещение остатков" },
-  { to: "/inventory/stock", label: "Остатки" },
-  { to: "/setup-warehouse", label: "Мастер склада" },
+  { to: "/warehouses", label: "??????" },
+  { to: "/items", label: "??????" },
+  { to: "/zones", label: "????" },
+  { to: "/locations", label: "??????" },
+  { to: "/inbound", label: "???????" },
+  { to: "/tares", label: "????" },
+  { to: "/putaway", label: "?????????? ????" },
+  { to: "/moves", label: "??????????? ????" },
+  { to: "/inventory/inbound", label: "?????? ? ???????" },
+  { to: "/inventory/move", label: "??????????? ????????" },
+  { to: "/inventory/stock", label: "???????" },
+  { to: "/setup-warehouse", label: "?????? ??????" },
 ];
+
 
 
 export default function App() {
