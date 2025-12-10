@@ -214,9 +214,7 @@ export default function InventoryInboundPage() {
     }
   };
 
-  const activeOrders = orders.filter(
-    (o) => o.status === "receiving" || o.status === "in_progress" || o.status === "ready_for_receiving"
-  );
+  const activeOrders = orders;
 
   const selectedLine = order?.lines.find((l) => l.id === Number(form.line_id));
   const lineItem = selectedLine ? items.find((i) => i.id === selectedLine.item_id) : null;
