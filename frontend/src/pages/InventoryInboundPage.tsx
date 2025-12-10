@@ -28,7 +28,17 @@ type ReceiveForm = {
   placement_location_id: string;
 };
 
-const statusLabels: Record<InboundStatus, string> = {\n  ready_for_receiving: "Готова к приёмке",\n  receiving: "В приёмке",\n  received: "Принята",\n  cancelled: "Отменена",\n  problem: "Проблема",\n  mis_sort: "Пересорт",\n  draft: "Готова к приёмке",\n  in_progress: "В приёмке",\n  completed: "Принята",\n};
+const statusLabels: Record<InboundStatus, string> = {
+  ready_for_receiving: "Готова к приёмке",
+  receiving: "В приёмке",
+  received: "Принята",
+  cancelled: "Отменена",
+  problem: "Проблема",
+  mis_sort: "Пересорт",
+  draft: "Готова к приёмке",
+  in_progress: "В приёмке",
+  completed: "Принята",
+};
 
 export default function InventoryInboundPage() {
   const [orders, setOrders] = useState<InboundOrder[]>([]);
