@@ -38,6 +38,23 @@ export default function TareMovesPage() {
     });
     return map;
   }, [zones]);
+  const zoneTypeLabel = (z?: Zone | null) => {
+    if (!z) return "";
+    if (z.zone_type === "storage") return "хранение";
+    if (z.zone_type === "inbound") return "приёмка";
+    if (z.zone_type === "outbound") return "отгрузка";
+    return z.zone_type;
+  };
+  const statusLabel = (status: Tare["status"]) => {
+    const map: Record<Tare["status"], string> = {
+      inbound: "приёмка",
+      storage: "хранение",
+      picking: "отбор",
+      outbound: "отгрузка",
+      closed: "закрыта",
+    };
+    return map[status] || status;
+  };
 
   const storageZones = useMemo(
     () => zones.filter((z) => z.zone_type === "storage"),
@@ -201,7 +218,7 @@ export default function TareMovesPage() {
                     <div className="muted" style={{ fontSize: 13 }}>
                       Статус
                     </div>
-                    <div>{tare.status}</div>
+                    <div>{statusLabel(tare.status)}</div>
                   </div>
                   <div>
                     <div className="muted" style={{ fontSize: 13 }}>
@@ -216,7 +233,7 @@ export default function TareMovesPage() {
                   </div>
                   <div>
                     {sourceLocation ? sourceLocation.code : "Нет ячейки"}{" "}
-                    {sourceZone ? `(${sourceZone.zone_type})` : ""}
+                    {sourceZone ? `(${zoneTypeLabel(sourceZone)})` : ""}
                   </div>
                 </div>
               </div>

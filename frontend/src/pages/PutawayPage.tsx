@@ -124,6 +124,13 @@ export default function PutawayPage() {
     sourceLocation && sourceLocation.zone_id
       ? zoneMap[sourceLocation.zone_id]
       : null;
+  const zoneTypeLabel = (z?: Zone | null) => {
+    if (!z) return "";
+    if (z.zone_type === "inbound") return "приёмка";
+    if (z.zone_type === "storage") return "хранение";
+    if (z.zone_type === "outbound") return "отгрузка";
+    return z.zone_type;
+  };
 
   const handleSelectTare = async (t: Tare) => {
     setSelectedTareId(t.id);
@@ -257,7 +264,7 @@ export default function PutawayPage() {
                       <div style={{ fontWeight: 600 }}>{t.tare_code}</div>
                       <div className="muted" style={{ fontSize: 13 }}>
                         {loc ? `Ячейка: ${loc.code}` : "Нет ячейки"}{" "}
-                        {zn ? `(${zn.zone_type})` : ""}
+                        {zn ? `(${zoneTypeLabel(zn)})` : ""}
                       </div>
                     </div>
                   );
@@ -342,7 +349,7 @@ export default function PutawayPage() {
                   </div>
                   <div>
                     {sourceLocation ? sourceLocation.code : "Нет ячейки"}{" "}
-                    {sourceZone ? `(${sourceZone.zone_type})` : ""}
+                    {sourceZone ? `(${zoneTypeLabel(sourceZone)})` : ""}
                   </div>
                 </div>
               </div>
