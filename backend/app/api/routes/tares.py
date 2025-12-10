@@ -116,11 +116,28 @@ async def list_tares_for_putaway(
     return result.scalars().all()
 
 
+@router.get("/in-storage", response_model=list[TareRead])
+async def list_tares_in_storage(
+    warehouse_id: int | None = None, session: AsyncSession = Depends(get_session)
+):
+    stmt = (
+        select(Tare)
+        .join(Location, Tare.location_id == Location.id)
+        .join(Zone, Location.zone_id == Zone.id)
+        .where(Zone.zone_type == ZoneType.storage)
+    )
+    if warehouse_id:
+        stmt = stmt.where(Tare.warehouse_id == warehouse_id)
+    result = await session.execute(stmt)
+    return result.scalars().all()
+
+
 @router.get("", response_model=list[TareRead])
 async def list_tares(
     warehouse_id: int | None = None,
     location_id: int | None = None,
     type_id: int | None = None,
+    code: str | None = None,
     status_filter: TareStatus | None = None,
     session: AsyncSession = Depends(get_session),
 ):
@@ -131,6 +148,8 @@ async def list_tares(
         stmt = stmt.where(Tare.location_id == location_id)
     if type_id:
         stmt = stmt.where(Tare.type_id == type_id)
+    if code:
+        stmt = stmt.where(Tare.tare_code == code)
     if status_filter:
         stmt = stmt.where(Tare.status == status_filter)
     result = await session.execute(stmt)
@@ -182,6 +201,24 @@ async def putaway_tare(
         allowed_to_zone_types=["storage"],
     )
     tare.status = TareStatus.storage
+    await session.commit()
+    await session.refresh(tare)
+    return tare
+
+
+@router.post("/{tare_id}/move", response_model=TareRead)
+async def move_tare_between_locations(
+    tare_id: int,
+    payload: TareMoveRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    tare = await move_tare(
+        session,
+        tare_id,
+        payload.target_location_id,
+        allowed_from_zone_types=["storage"],
+        allowed_to_zone_types=["storage"],
+    )
     await session.commit()
     await session.refresh(tare)
     return tare
