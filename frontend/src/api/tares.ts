@@ -6,6 +6,7 @@ type TareParams = {
   location_id?: number;
   type_id?: number;
   status?: TareStatus;
+  code?: string;
 };
 
 export const getTareTypes = () => request<TareType[]>("/tares/types");
@@ -28,9 +29,12 @@ export const getTares = (params: TareParams = {}) => {
   if (params.location_id) search.append("location_id", String(params.location_id));
   if (params.type_id) search.append("type_id", String(params.type_id));
   if (params.status) search.append("status_filter", params.status);
+  if (params.code) search.append("code", params.code);
   const qs = search.toString();
   return request<Tare[]>(`/tares${qs ? `?${qs}` : ""}`);
 };
+
+export const getTare = (id: number) => request<Tare>(`/tares/${id}`);
 
 export const getTareItems = (tareId: number) =>
   request<TareItemWithItem[]>(`/tares/${tareId}/items`);
@@ -65,8 +69,21 @@ export const getTaresForPutaway = (warehouse_id?: number) => {
   return request<Tare[]>(`/tares/for-putaway${query ? `?${query}` : ""}`);
 };
 
+export const getTaresInStorage = (warehouse_id?: number) => {
+  const params = new URLSearchParams();
+  if (warehouse_id) params.append("warehouse_id", String(warehouse_id));
+  const query = params.toString();
+  return request<Tare[]>(`/tares/in-storage${query ? `?${query}` : ""}`);
+};
+
 export const putawayTare = (tareId: number, target_location_id: number) =>
   request<Tare>(`/tares/${tareId}/putaway`, {
+    method: "POST",
+    body: JSON.stringify({ target_location_id }),
+  });
+
+export const moveTare = (tareId: number, target_location_id: number) =>
+  request<Tare>(`/tares/${tareId}/move`, {
     method: "POST",
     body: JSON.stringify({ target_location_id }),
   });

@@ -12,6 +12,7 @@ import InboundCreatePage from "./pages/InboundCreatePage";
 import InboundDetailPage from "./pages/InboundDetailPage";
 import TaresPage from "./pages/TaresPage";
 import PutawayPage from "./pages/PutawayPage";
+import TareMovesPage from "./pages/TareMovesPage";
 
 const navLinks = [
   { to: "/warehouses", label: "Warehouses" },
@@ -21,6 +22,7 @@ const navLinks = [
   { to: "/inbound", label: "Inbound" },
   { to: "/tares", label: "Tares" },
   { to: "/putaway", label: "Put-away" },
+  { to: "/moves", label: "Moves" },
   { to: "/inventory/inbound", label: "Inventory inbound" },
   { to: "/inventory/move", label: "Inventory move" },
   { to: "/inventory/stock", label: "Stock" },
@@ -59,6 +61,7 @@ export default function App() {
           <Route path="/inbound/:id" element={<InboundDetailPage />} />
           <Route path="/tares" element={<TaresPage />} />
           <Route path="/putaway" element={<PutawayPage />} />
+          <Route path="/moves" element={<TareMovesPage />} />
           <Route
             path="/inventory"
             element={<Navigate to="/inventory/inbound" replace />}
