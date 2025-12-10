@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+﻿from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -49,7 +49,9 @@ def _recalculate_order_status(order: InboundOrder) -> None:
     has_mis_sort = any(
         ln.line_status == "mis_sort" or ln.expected_qty == 0 for ln in order.lines
     )
-    has_over = any(ln.received_qty > ln.expected_qty for ln in order.lines if ln.expected_qty is not None)
+    has_over = any(
+        ln.received_qty > ln.expected_qty for ln in order.lines if ln.expected_qty is not None
+    )
     all_match = (
         len(order.lines) > 0
         and not has_mis_sort
@@ -69,6 +71,46 @@ def _recalculate_order_status(order: InboundOrder) -> None:
         order.status = InboundStatus.received
     else:
         order.status = InboundStatus.receiving
+
+
+async def _populate_line_locations_from_receipts(
+    session: AsyncSession, order: InboundOrder
+) -> None:
+    """
+    If line.location_id is empty, try to fill it from last receipt/tare placement.
+    """
+    receipts = (
+        await session.execute(
+            select(
+                InboundReceipt.line_id,
+                InboundReceipt.item_id,
+                Tare.location_id,
+                InboundReceipt.id,
+            )
+            .join(Tare, InboundReceipt.tare_id == Tare.id)
+            .where(
+                InboundReceipt.inbound_order_id == order.id,
+                Tare.location_id.isnot(None),
+            )
+            .order_by(InboundReceipt.id)
+        )
+    ).all()
+
+    last_by_line: dict[int, int] = {}
+    last_by_item: dict[int, int] = {}
+    for rec_line_id, rec_item_id, rec_loc_id, _ in receipts:
+        if rec_line_id:
+            last_by_line[rec_line_id] = rec_loc_id
+        if rec_item_id:
+            last_by_item[rec_item_id] = rec_loc_id
+
+    for ln in order.lines:
+        if ln.location_id:
+            continue
+        if ln.id in last_by_line:
+            ln.location_id = last_by_line[ln.id]
+        elif ln.item_id in last_by_item:
+            ln.location_id = last_by_item[ln.item_id]
 
 
 @router.post("", response_model=InboundOrderRead, status_code=status.HTTP_201_CREATED)
@@ -116,7 +158,7 @@ async def create_inbound_order(
                     detail=f"Location {loc.id} does not belong to warehouse {payload.warehouse_id}",
                 )
 
-    status_value = payload.status or InboundStatus.ready_for_receiving
+    status_value = payload.status or InboundStatus.created
     order = InboundOrder(
         external_number=payload.external_number,
         warehouse_id=payload.warehouse_id,
@@ -161,7 +203,10 @@ async def list_inbound_orders(
         stmt = stmt.where(InboundOrder.external_number.ilike(f"%{external_number}%"))
 
     result = await session.execute(stmt)
-    return result.scalars().all()
+    orders = result.scalars().all()
+    for o in orders:
+        await _populate_line_locations_from_receipts(session, o)
+    return orders
 
 
 @router.get("/{order_id}", response_model=InboundOrderRead)
@@ -169,6 +214,7 @@ async def get_inbound_order(order_id: int, session: AsyncSession = Depends(get_s
     order = await _get_inbound_with_lines(session, order_id)
     if order is None:
         raise HTTPException(status_code=404, detail="Inbound order not found")
+    await _populate_line_locations_from_receipts(session, order)
     return order
 
 
@@ -185,19 +231,43 @@ async def update_inbound_status(
         raise HTTPException(status_code=404, detail="Inbound order not found")
 
     transitions = {
-        InboundStatus.ready_for_receiving: {InboundStatus.receiving, InboundStatus.cancelled},
+        InboundStatus.created: {
+            InboundStatus.ready_for_receiving,
+            InboundStatus.cancelled,
+        },
+        InboundStatus.ready_for_receiving: {
+            InboundStatus.receiving,
+            InboundStatus.cancelled,
+            InboundStatus.in_progress,  # legacy alias
+        },
         InboundStatus.receiving: {
             InboundStatus.received,
             InboundStatus.cancelled,
             InboundStatus.problem,
             InboundStatus.mis_sort,
+            InboundStatus.in_progress,
         },
-        InboundStatus.problem: {InboundStatus.receiving, InboundStatus.cancelled, InboundStatus.received},
-        InboundStatus.mis_sort: {InboundStatus.receiving, InboundStatus.cancelled, InboundStatus.received},
+        InboundStatus.problem: {
+            InboundStatus.receiving,
+            InboundStatus.cancelled,
+            InboundStatus.received,
+            InboundStatus.in_progress,
+        },
+        InboundStatus.mis_sort: {
+            InboundStatus.receiving,
+            InboundStatus.cancelled,
+            InboundStatus.received,
+            InboundStatus.in_progress,
+        },
         InboundStatus.received: set(),
         InboundStatus.cancelled: set(),
         # legacy compatibility
-        InboundStatus.draft: {InboundStatus.receiving, InboundStatus.cancelled},
+        InboundStatus.draft: {
+            InboundStatus.receiving,
+            InboundStatus.cancelled,
+            InboundStatus.in_progress,
+            InboundStatus.ready_for_receiving,
+        },
         InboundStatus.in_progress: {
             InboundStatus.received,
             InboundStatus.cancelled,
@@ -327,15 +397,6 @@ async def close_tare_after_receiving(
     order = await _get_inbound_with_lines(session, order_id)
     if order is None:
         raise HTTPException(status_code=404, detail="Inbound order not found")
-    if order.status not in {
-        InboundStatus.receiving,
-        InboundStatus.problem,
-        InboundStatus.mis_sort,
-        InboundStatus.in_progress,
-        InboundStatus.ready_for_receiving,
-        InboundStatus.draft,
-    }:
-        raise HTTPException(status_code=400, detail="Order must be in receiving to close tare")
 
     tare = await session.get(Tare, payload.tare_id)
     if tare is None:
@@ -359,17 +420,21 @@ async def close_tare_after_receiving(
     if location.zone is None or location.zone.zone_type != ZoneType.inbound:
         raise HTTPException(
             status_code=400,
-            detail="Принимать можно только в ячейки зоны приёмки",
+            detail="Нельзя размещать тару в ячейку вне зоны приёмки",
         )
 
-    # if ещё не в приёмке, переведём в приёмку перед размещением
-    if order.status in {InboundStatus.ready_for_receiving, InboundStatus.draft}:
+    if order.status in {InboundStatus.ready_for_receiving, InboundStatus.draft, InboundStatus.created}:
         order.status = InboundStatus.receiving
 
-    # move tare and update inventory by its items
     await session.refresh(tare, attribute_names=["items"])
+    if not tare.items or sum(ti.quantity for ti in tare.items) <= 0:
+        raise HTTPException(status_code=400, detail="Нельзя разместить пустую тару: нет принятых товаров")
+
     tare.location_id = payload.location_id
     for ti in tare.items:
+        for ln in order.lines:
+            if ln.item_id == ti.item_id:
+                ln.location_id = payload.location_id
         await increment_inventory(
             session,
             warehouse_id=order.warehouse_id,
@@ -382,6 +447,6 @@ async def close_tare_after_receiving(
     tare.status = TareStatus.closed
     _recalculate_order_status(order)
     await session.commit()
-    await session.refresh(order)
-    await session.refresh(order, attribute_names=["lines"])
-    return order
+    updated = await _get_inbound_with_lines(session, order_id)
+    await _populate_line_locations_from_receipts(session, updated)
+    return updated

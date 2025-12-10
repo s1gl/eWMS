@@ -14,6 +14,7 @@ from app.db.base import Base
 
 
 class InboundStatus(str, enum.Enum):
+    created = "created"
     ready_for_receiving = "ready_for_receiving"
     receiving = "receiving"
     received = "received"
@@ -46,8 +47,8 @@ class InboundOrder(Base):
     status = Column(
         Enum(InboundStatus, name="inboundstatus"),
         nullable=False,
-        default=InboundStatus.ready_for_receiving,
-        server_default=InboundStatus.ready_for_receiving.value,
+        default=InboundStatus.created,
+        server_default=InboundStatus.created.value,
     )
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(

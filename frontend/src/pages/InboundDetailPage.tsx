@@ -14,25 +14,37 @@ import Card from "../components/Card";
 import Notice from "../components/Notice";
 
 const statusLabels: Record<InboundStatus, string> = {
-  draft: "Готова к приёмке",
-  in_progress: "В приёмке",
-  completed: "Завершена",
+  created: "Создана",
+  ready_for_receiving: "Готова к приёмке",
+  receiving: "В приёмке",
+  received: "Принята",
   cancelled: "Отменена",
   problem: "Проблема",
   mis_sort: "Пересорт",
+  // поддержка старых статусов, если приходят из БД
+  draft: "Готова к приёмке",
+  in_progress: "В приёмке",
+  completed: "Принята",
 };
 
 const lineStatusLabel = (status?: string | null) => {
   if (!status) return "—";
   const map: Record<string, string> = {
     open: "Открыта",
-    partially_received: "Принято частично",
-    fully_received: "Принято полностью",
+    partially_received: "Частично принято",
+    fully_received: "Принято",
     cancelled: "Отменена",
-    over_received: "Принято больше ожидаемого",
+    over_received: "Принято больше заявленного",
     mis_sort: "Пересорт",
   };
   return map[status] || status;
+};
+
+const lineColor = (line: InboundOrder["lines"][number]) => {
+  if (line.expected_qty === 0 || line.line_status === "mis_sort") return "#ffe5e5";
+  if (line.received_qty > line.expected_qty) return "#fff5cc";
+  if (line.expected_qty > 0 && line.received_qty === line.expected_qty) return "#e8f9e8";
+  return "transparent";
 };
 
 export default function InboundDetailPage() {
@@ -50,7 +62,7 @@ export default function InboundDetailPage() {
 
   useEffect(() => {
     if (!orderId) {
-      setError("Некорректный идентификатор поставки");
+      setError("Неверный идентификатор поставки");
       return;
     }
     loadData();
@@ -101,9 +113,9 @@ export default function InboundDetailPage() {
       await changeInboundStatus(order.id, { status });
       const updated = await getInboundOrder(order.id);
       setOrder(updated);
-      setMessage("Статус обновлён");
+      setMessage("Статус поставки обновлён");
     } catch (e: any) {
-      setError(e.message || "Не удалось изменить статус");
+      setError(e.message || "Не удалось обновить статус");
     } finally {
       setLoading(false);
     }
@@ -112,7 +124,7 @@ export default function InboundDetailPage() {
   if (!orderId) {
     return (
       <div className="page">
-        <Notice tone="error">Некорректный ID поставки</Notice>
+        <Notice tone="error">Неверный ID поставки</Notice>
       </div>
     );
   }
@@ -120,7 +132,7 @@ export default function InboundDetailPage() {
   const titleNumber =
     order?.external_number?.trim() && order?.external_number.trim() !== ""
       ? order.external_number
-      : `№-${order?.id ?? orderId}`;
+      : `№${order?.id ?? orderId}`;
 
   return (
     <div className="page">
@@ -161,33 +173,48 @@ export default function InboundDetailPage() {
             </div>
 
             <div className="actions-row" style={{ marginTop: 12, gap: 8 }}>
-              {order.status === "draft" && (
-                <button onClick={() => handleStatusChange("in_progress")} disabled={loading}>
+              {order.status === "created" && (
+                <button onClick={() => handleStatusChange("ready_for_receiving")} disabled={loading}>
+                  Отправить в приёмку
+                </button>
+              )}
+              {["draft", "ready_for_receiving"].includes(order.status) && (
+                <button onClick={() => handleStatusChange("receiving")} disabled={loading}>
                   Начать приёмку
                 </button>
               )}
-              {order.status === "in_progress" && (
-                <button onClick={() => handleStatusChange("completed")} disabled={loading}>
+              {["receiving", "in_progress", "problem", "mis_sort"].includes(order.status) && (
+                <button onClick={() => handleStatusChange("received")} disabled={loading}>
                   Завершить приёмку
+                </button>
+              )}
+              {["created", "ready_for_receiving", "receiving"].includes(order.status) && (
+                <button
+                  className="ghost"
+                  onClick={() => handleStatusChange("cancelled")}
+                  disabled={loading}
+                >
+                  Отменить поставку
                 </button>
               )}
             </div>
 
             <Notice tone="info">
-              Приёмка выполняется в разделе “Приёмка”/“Тары”. Здесь — только создание и управление поставками.
+              После завершения приёмки проверьте фактические количества и статусы строк. Излишки
+              подсветятся жёлтым, пересорт — красным.
             </Notice>
           </>
         )}
       </Card>
 
-      <Card title="Строки поставки (только просмотр)">
+      <Card title="Строки поставки (заявлено / факт)">
         <div className="table-wrapper">
           <table>
             <thead>
               <tr>
                 <th>Товар</th>
-                <th>Ожидали</th>
-                <th>Принято</th>
+                <th>Заявлено</th>
+                <th>Факт</th>
                 <th>Статус строки</th>
                 <th>Ячейка</th>
               </tr>
@@ -198,7 +225,7 @@ export default function InboundDetailPage() {
                 const loc = locations.find((l) => l.id === line.location_id);
                 const zone = loc?.zone_id ? zoneById[loc.zone_id] : undefined;
                 return (
-                  <tr key={line.id}>
+                  <tr key={line.id} style={{ background: lineColor(line) }}>
                     <td>{item ? `${item.name} (${item.sku})` : `ID ${line.item_id}`}</td>
                     <td>{line.expected_qty}</td>
                     <td>{line.received_qty}</td>
@@ -218,7 +245,7 @@ export default function InboundDetailPage() {
               {!order?.lines.length && (
                 <tr>
                   <td colSpan={5} style={{ textAlign: "center" }}>
-                    Строк пока нет
+                    Строки не найдены
                   </td>
                 </tr>
               )}

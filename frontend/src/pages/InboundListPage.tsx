@@ -8,12 +8,17 @@ import Card from "../components/Card";
 import Notice from "../components/Notice";
 
 const statusLabels: Record<InboundStatus, string> = {
-  draft: "Готова к приёмке",
-  in_progress: "В приёмке",
-  completed: "Завершена",
+  created: "Создана",
+  ready_for_receiving: "Готова к приёмке",
+  receiving: "В приёмке",
+  received: "Принята",
   cancelled: "Отменена",
   problem: "Проблема",
   mis_sort: "Пересорт",
+  // legacy
+  draft: "Готова к приёмке",
+  in_progress: "В приёмке",
+  completed: "Принята",
 };
 
 export default function InboundListPage() {
@@ -40,7 +45,7 @@ export default function InboundListPage() {
       setOrders(data);
       setWarehouses(wh);
     } catch (e: any) {
-      setError(e.message || "Не удалось загрузить поставки");
+      setError(e.message || "Не удалось загрузить список поставок");
     } finally {
       setLoading(false);
     }
@@ -49,7 +54,7 @@ export default function InboundListPage() {
   return (
     <div className="page">
       <Card
-        title="Поставки на склад"
+        title="Поставки"
         actions={
           <Link className="ghost" to="/inbound/new">
             Создать поставку
@@ -57,7 +62,7 @@ export default function InboundListPage() {
         }
       >
         <p className="muted">
-          Здесь список всех поставок и их статусы. Кликните по строке, чтобы открыть приёмку.
+          Здесь список всех поставок и их статусы. Нажмите на строку, чтобы открыть детальную страницу.
         </p>
         {error && <Notice tone="error">{error}</Notice>}
         {loading && <Notice tone="info">Загрузка...</Notice>}
@@ -65,7 +70,7 @@ export default function InboundListPage() {
           <table>
             <thead>
               <tr>
-                <th>Номер</th>
+                <th>ID</th>
                 <th>Внешний номер</th>
                 <th>Склад</th>
                 <th>Статус</th>
@@ -91,7 +96,7 @@ export default function InboundListPage() {
               {orders.length === 0 && (
                 <tr>
                   <td colSpan={6} style={{ textAlign: "center" }}>
-                    Поставок пока нет
+                    Поставки не найдены
                   </td>
                 </tr>
               )}
