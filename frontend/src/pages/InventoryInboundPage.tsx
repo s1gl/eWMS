@@ -78,11 +78,7 @@ export default function InventoryInboundPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const [ords, it, tt] = await Promise.all([
-          getInboundOrders({ status: "receiving" }),
-          fetchItems(),
-          getTareTypes(),
-        ]);
+        const [ords, it, tt] = await Promise.all([getInboundOrders(), fetchItems(), getTareTypes()]);
         setOrders(ords);
         setItems(it);
         setTareTypes(tt);
