@@ -1,8 +1,13 @@
-﻿import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import Card from "../components/Card";
 import FormField from "../components/FormField";
 import Notice from "../components/Notice";
-import { getInboundOrders, getInboundOrder, receiveInboundLine } from "../api/inbound";
+import {
+  getInboundOrders,
+  getInboundOrder,
+  receiveInboundLine,
+  closeInboundTare,
+} from "../api/inbound";
 import { fetchItems } from "../api/items";
 import { fetchLocations } from "../api/locations";
 import { fetchZones } from "../api/zones";
@@ -44,6 +49,7 @@ export default function InventoryInboundPage() {
   const [tares, setTares] = useState<Tare[]>([]);
   const [tareTypes, setTareTypes] = useState<TareType[]>([]);
   const [newTareTypeId, setNewTareTypeId] = useState<string>("");
+  const [itemQuery, setItemQuery] = useState("");
   const [form, setForm] = useState<ReceiveForm>({
     order_id: "",
     line_id: "",
@@ -65,7 +71,7 @@ export default function InventoryInboundPage() {
     return locations.filter((loc) => {
       if (!loc.zone_id) return false;
       const z = zoneMap[loc.zone_id];
-      return z?.zone_type === "inbound";
+      return z?.zone_type === ZoneType.inbound;
     });
   }, [locations, zones]);
 
@@ -73,7 +79,7 @@ export default function InventoryInboundPage() {
     const load = async () => {
       try {
         const [ords, it, tt] = await Promise.all([
-          getInboundOrders({ status: "in_progress" }),
+          getInboundOrders({ status: "receiving" }),
           fetchItems(),
           getTareTypes(),
         ]);
@@ -81,11 +87,19 @@ export default function InventoryInboundPage() {
         setItems(it);
         setTareTypes(tt);
       } catch (e: any) {
-        setError(e.message || "РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ РґР°РЅРЅС‹Рµ");
+        setError(e.message || "Не удалось загрузить данные");
       }
     };
     load();
   }, []);
+
+  const inboundLocationsFrom = (locs: Location[], zn: Zone[]) => {
+    const zmap = zn.reduce<Record<number, Zone>>((acc, z) => {
+      acc[z.id] = z;
+      return acc;
+    }, {});
+    return locs.filter((l) => l.zone_id && zmap[l.zone_id]?.zone_type === ZoneType.inbound);
+  };
 
   const loadOrderDetails = async (orderId: number) => {
     setLoading(true);
@@ -103,6 +117,7 @@ export default function InventoryInboundPage() {
       setZones(zn);
       setTares(tr);
       const firstLine = ord.lines[0];
+      const inboundLoc = inboundLocationsFrom(locs, zn)[0];
       setForm({
         order_id: String(orderId),
         line_id: firstLine ? String(firstLine.id) : "",
@@ -110,32 +125,23 @@ export default function InventoryInboundPage() {
         qty: "",
         tare_id: tr[0]?.id ? String(tr[0].id) : "",
         condition: "good",
-        placement_location_id: inboundLocationsFrom(locs, zn)[0]?.id
-          ? String(inboundLocationsFrom(locs, zn)[0].id)
-          : "",
+        placement_location_id: inboundLoc ? String(inboundLoc.id) : "",
       });
     } catch (e: any) {
-      setError(e.message || "РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ РїРѕСЃС‚Р°РІРєСѓ");
+      setError(e.message || "Не удалось загрузить поставку");
     } finally {
       setLoading(false);
     }
   };
 
-  const inboundLocationsFrom = (locs: Location[], zn: Zone[]) => {
-    const zmap = zn.reduce<Record<number, Zone>>((acc, z) => {
-      acc[z.id] = z;
-      return acc;
-    }, {});
-    return locs.filter((l) => l.zone_id && zmap[l.zone_id]?.zone_type === ZoneType.inbound);
-  };
-
   const handleReceive = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!order) return;
-    const lineId = Number(form.line_id);
+    const lineId = form.line_id ? Number(form.line_id) : undefined;
+    const itemId = form.item_id ? Number(form.item_id) : undefined;
     const qty = Number(form.qty);
     const tareId = Number(form.tare_id);
-    if (!lineId) return setError("Выберите строку поставки");
+    if (!lineId && !itemId) return setError("Укажите строку или товар");
     if (!tareId) return setError("Выберите тару");
     if (!qty || qty <= 0) return setError("Количество должно быть больше нуля");
 
@@ -145,6 +151,7 @@ export default function InventoryInboundPage() {
     try {
       const updated = await receiveInboundLine(order.id, {
         line_id: lineId,
+        item_id: itemId,
         qty,
         tare_id: tareId,
         condition: form.condition,
@@ -160,10 +167,11 @@ export default function InventoryInboundPage() {
       setLoading(false);
     }
   };
-const handleCreateTare = async () => {
+
+  const handleCreateTare = async () => {
     if (!order) return;
     if (!newTareTypeId) {
-      setError("Р’С‹Р±РµСЂРёС‚Рµ С‚РёРї С‚Р°СЂС‹");
+      setError("Выберите тип тары");
       return;
     }
     setLoading(true);
@@ -177,9 +185,9 @@ const handleCreateTare = async () => {
       const tr = await getTares({ warehouse_id: order.warehouse_id });
       setTares(tr);
       setForm((prev) => ({ ...prev, tare_id: String(tare.id) }));
-      setMessage("РўР°СЂР° СЃРѕР·РґР°РЅР°");
+      setMessage("Тара создана");
     } catch (e: any) {
-      setError(e.message || "РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕР·РґР°С‚СЊ С‚Р°СЂСѓ");
+      setError(e.message || "Не удалось создать тару");
     } finally {
       setLoading(false);
     }
@@ -197,7 +205,7 @@ const handleCreateTare = async () => {
     try {
       const updated = await closeInboundTare(order.id, {
         tare_id: tareId,
-        placement_location_id: placeId,
+        location_id: placeId,
       });
       setOrder(updated);
       setMessage("Тара размещена на приёмке");
@@ -211,22 +219,23 @@ const handleCreateTare = async () => {
   };
 
   const activeOrders = orders.filter(
-    (o) => o.status === "receiving" || o.status === "in_progress"
+    (o) => o.status === "receiving" || o.status === "in_progress" || o.status === "ready_for_receiving"
   );
 
   const selectedLine = order?.lines.find((l) => l.id === Number(form.line_id));
-  const item = items.find((i) => i.id === selectedLine?.item_id);
+  const lineItem = selectedLine ? items.find((i) => i.id === selectedLine.item_id) : null;
 
   return (
-    <div className="page">
-      <Card title="РџСЂРёС‘РјРєР° (С‡РµСЂРµР· С‚Р°СЂСѓ)">
+    <div className="page" style={{ width: "100%" }}>
+      <Card title="Приёмка (работа через тару)">
         <p className="muted">
-          Р—РґРµСЃСЊ РјРѕР¶РЅРѕ РїСЂРёРЅСЏС‚СЊ С‚РѕРІР°СЂ С‚РѕР»СЊРєРѕ РІ СЏС‡РµР№РєСѓ Р·РѕРЅС‹ РїСЂРёС‘РјРєРё Рё С‚РѕР»СЊРєРѕ С‡РµСЂРµР· РІС‹Р±СЂР°РЅРЅСѓСЋ С‚Р°СЂСѓ.
+          Выберите поставку, создайте или выберите тару, укажите товар, его состояние и количество. После завершения
+          сессии разместите тару в ячейке зоны приёмки.
         </p>
         {error && <Notice tone="error">{error}</Notice>}
         {message && <Notice tone="success">{message}</Notice>}
         <div className="form inline">
-          <FormField label="РџРѕСЃС‚Р°РІРєР°">
+          <FormField label="Поставка">
             <select
               value={form.order_id}
               onChange={(e) => {
@@ -235,16 +244,15 @@ const handleCreateTare = async () => {
                 if (oid) loadOrderDetails(oid);
               }}
             >
-              <option value="">Р’С‹Р±РµСЂРёС‚Рµ РїРѕСЃС‚Р°РІРєСѓ РІ СЃС‚Р°С‚СѓСЃРµ вЂњР’ РїСЂРёС‘РјРєРµвЂќ</option>
+              <option value="">Выберите поставку</option>
               {activeOrders.map((o) => (
                 <option key={o.id} value={o.id}>
-                  в„–{o.id} {o.external_number ? `(${o.external_number})` : ""} вЂ”{" "}
-                  {statusLabels[o.status] || o.status}
+                  #{o.id} {o.external_number ? `(${o.external_number})` : ""} — {statusLabels[o.status] || o.status}
                 </option>
               ))}
             </select>
           </FormField>
-          <FormField label="РЎС‚СЂРѕРєР° РїРѕСЃС‚Р°РІРєРё">
+          <FormField label="Строка поставки">
             <select
               value={form.line_id}
               onChange={(e) => {
@@ -253,17 +261,20 @@ const handleCreateTare = async () => {
                 setForm((prev) => ({
                   ...prev,
                   line_id: e.target.value,
-                  item_id: ln ? String(ln.item_id) : "",
+                  item_id: ln ? String(ln.item_id) : prev.item_id,
                 }));
               }}
               disabled={!order}
             >
-              <option value="">Р’С‹Р±РµСЂРёС‚Рµ СЃС‚СЂРѕРєСѓ</option>
-              {order?.lines.map((ln) => (
-                <option key={ln.id} value={ln.id}>
-                  РЎС‚СЂРѕРєР° #{ln.id} вЂў С‚РѕРІР°СЂ {ln.item_id} вЂў РїСЂРёРЅСЏС‚Рѕ {ln.received_qty}/{ln.expected_qty}
-                </option>
-              ))}
+              <option value="">Выберите строку</option>
+              {order?.lines.map((ln) => {
+                const it = items.find((i) => i.id === ln.item_id);
+                return (
+                  <option key={ln.id} value={ln.id}>
+                    Строка #{ln.id} • {it ? it.name : `товар ${ln.item_id}`} • принято {ln.received_qty}/{ln.expected_qty}
+                  </option>
+                );
+              })}
             </select>
           </FormField>
         </div>
@@ -271,14 +282,14 @@ const handleCreateTare = async () => {
 
       {order && (
         <div className="grid two">
-          <Card title="РўР°СЂР°">
+          <Card title="Тара">
             <div className="table-wrapper">
               <table>
                 <thead>
                   <tr>
-                    <th>РўРёРї</th>
-                    <th>РљРѕРґ</th>
-                    <th>РЇС‡РµР№РєР°</th>
+                    <th>Тип</th>
+                    <th>Код</th>
+                    <th>Ячейка</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -289,14 +300,14 @@ const handleCreateTare = async () => {
                       <tr key={t.id}>
                         <td>{tt ? tt.name : t.type_id}</td>
                         <td>{t.tare_code}</td>
-                        <td>{loc ? loc.code : "вЂ”"}</td>
+                        <td>{loc ? loc.code : "—"}</td>
                       </tr>
                     );
                   })}
                   {tares.length === 0 && (
                     <tr>
                       <td colSpan={3} style={{ textAlign: "center" }}>
-                        РўР°СЂС‹ РїРѕРєР° РЅРµС‚
+                        Тары пока нет
                       </td>
                     </tr>
                   )}
@@ -304,12 +315,12 @@ const handleCreateTare = async () => {
               </table>
             </div>
             <div className="form inline" style={{ marginTop: 12 }}>
-              <FormField label="РўРёРї С‚Р°СЂС‹">
+              <FormField label="Тип тары">
                 <select
                   value={newTareTypeId}
                   onChange={(e) => setNewTareTypeId(e.target.value)}
                 >
-                  <option value="">Р’С‹Р±РµСЂРёС‚Рµ С‚РёРї</option>
+                  <option value="">Выберите тип</option>
                   {tareTypes.map((tt) => (
                     <option key={tt.id} value={tt.id}>
                       {tt.name} ({tt.code})
@@ -318,47 +329,65 @@ const handleCreateTare = async () => {
                 </select>
               </FormField>
               <button type="button" onClick={handleCreateTare} disabled={loading || !order}>
-                РЎРѕР·РґР°С‚СЊ С‚Р°СЂСѓ
+                Создать тару
               </button>
             </div>
           </Card>
 
-          <Card title="РџСЂРёРЅСЏС‚СЊ С‚РѕРІР°СЂ">
+          <Card title="Принять товар">
             <form className="form" onSubmit={handleReceive}>
-              <FormField label="РўРѕРІР°СЂ">
-                <input value={item ? `${item.name} (${item.sku})` : ""} readOnly />
+              <FormField label="Товар (по строке или поиск SKU/штрихкода)">
+                <input
+                  value={lineItem ? `${lineItem.name} (${lineItem.sku})` : ""}
+                  placeholder="Выберите строку или найдите товар"
+                  readOnly
+                />
+                <div style={{ marginTop: 8 }}>
+                  <input
+                    type="text"
+                    placeholder="Поиск товара (SKU, штрихкод, название)"
+                    value={itemQuery}
+                    onChange={async (e) => {
+                      const q = e.target.value;
+                      setItemQuery(q);
+                      const list = await fetchItems({ query: q });
+                      setItems(list);
+                      const found = list.find((it) => it.sku === q || it.barcode === q);
+                      if (found) {
+                        setForm((prev) => ({ ...prev, item_id: String(found.id), line_id: "" }));
+                      }
+                    }}
+                  />
+                </div>
               </FormField>
-              <FormField label="РЎРєРѕР»СЊРєРѕ РїСЂРёРЅСЏС‚СЊ">
+
+              <FormField label="Состояние">
+                <select
+                  value={form.condition}
+                  onChange={(e) => setForm((prev) => ({ ...prev, condition: e.target.value }))}
+                >
+                  <option value="good">Годен</option>
+                  <option value="defect">Брак</option>
+                  <option value="quarantine">Карантин</option>
+                </select>
+              </FormField>
+
+              <FormField label="Сколько принять">
                 <input
                   type="number"
                   min={1}
                   value={form.qty}
                   onChange={(e) => setForm((prev) => ({ ...prev, qty: e.target.value }))}
-                  placeholder="РљРѕР»РёС‡РµСЃС‚РІРѕ"
+                  placeholder="Количество"
                 />
               </FormField>
-              <FormField label="РЇС‡РµР№РєР° Р·РѕРЅС‹ РїСЂРёС‘РјРєРё">
-                <select
-                  value={form.placement_location_id}
-                  onChange={(e) => setForm((prev) => ({ ...prev, placement_location_id: e.target.value }))}
-                >
-                  <option value="">Р’С‹Р±РµСЂРёС‚Рµ СЏС‡РµР№РєСѓ РїСЂРёС‘РјРєРё</option>
-                  {inboundLocations.map((loc) => {
-                    const zone = zones.find((z) => z.id === loc.zone_id);
-                    return (
-                      <option key={loc.id} value={loc.id}>
-                        {loc.code} {zone ? `(${zone.name})` : ""}
-                      </option>
-                    );
-                  })}
-                </select>
-              </FormField>
-              <FormField label="РўР°СЂР°">
+
+              <FormField label="Тара">
                 <select
                   value={form.tare_id}
                   onChange={(e) => setForm((prev) => ({ ...prev, tare_id: e.target.value }))}
                 >
-                  <option value="">Р’С‹Р±РµСЂРёС‚Рµ С‚Р°СЂСѓ</option>
+                  <option value="">Выберите тару</option>
                   {tares.map((t) => {
                     const tt = tareTypes.find((x) => x.id === t.type_id);
                     return (
@@ -369,21 +398,44 @@ const handleCreateTare = async () => {
                   })}
                 </select>
               </FormField>
+
               <div className="actions-row">
                 <button
                   type="submit"
-                  disabled={
-                    loading ||
-                    !form.order_id ||
-                    !form.line_id ||
-                    !form.placement_location_id ||
-                    !form.tare_id
-                  }
+                  disabled={loading || !form.order_id || (!form.line_id && !form.item_id) || !form.tare_id}
                 >
-                  {loading ? "РџСЂРёРЅРёРјР°РµРј..." : "РџСЂРёРЅСЏС‚СЊ"}
+                  {loading ? "Приёмка..." : "Принять"}
                 </button>
               </div>
             </form>
+          </Card>
+
+          <Card title="Сохранить приёмку и разместить тару">
+            <div className="form inline">
+              <FormField label="Ячейка зоны приёмки">
+                <select
+                  value={form.placement_location_id}
+                  onChange={(e) => setForm((prev) => ({ ...prev, placement_location_id: e.target.value }))}
+                >
+                  <option value="">Выберите ячейку приёмки</option>
+                  {inboundLocations.map((loc) => {
+                    const zone = zones.find((z) => z.id === loc.zone_id);
+                    return (
+                      <option key={loc.id} value={loc.id}>
+                        {loc.code} {zone ? `(${zone.name})` : ""}
+                      </option>
+                    );
+                  })}
+                </select>
+              </FormField>
+              <button
+                type="button"
+                onClick={handleCloseTare}
+                disabled={loading || !form.tare_id || !form.placement_location_id || !order}
+              >
+                Сохранить приёмку
+              </button>
+            </div>
           </Card>
         </div>
       )}
