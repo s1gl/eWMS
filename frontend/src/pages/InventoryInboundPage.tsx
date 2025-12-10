@@ -15,7 +15,7 @@ import { createTare, getTareTypes, getTares } from "../api/tares";
 import type { InboundOrder, InboundStatus } from "../types/inbound";
 import type { Item } from "../types";
 import type { Location } from "../types/location";
-import { ZoneType, type Zone } from "../types/zone";
+import type { Zone } from "../types/zone";
 import type { Tare, TareType } from "../types/tare";
 
 type ReceiveForm = {
@@ -71,7 +71,7 @@ export default function InventoryInboundPage() {
     return locations.filter((loc) => {
       if (!loc.zone_id) return false;
       const z = zoneMap[loc.zone_id];
-      return z?.zone_type === ZoneType.inbound;
+      return z?.zone_type === "inbound";
     });
   }, [locations, zones]);
 
@@ -94,7 +94,7 @@ export default function InventoryInboundPage() {
       acc[z.id] = z;
       return acc;
     }, {});
-    return locs.filter((l) => l.zone_id && zmap[l.zone_id]?.zone_type === ZoneType.inbound);
+    return locs.filter((l) => l.zone_id && zmap[l.zone_id]?.zone_type === "inbound");
   };
 
   const loadOrderDetails = async (orderId: number) => {
