@@ -15,7 +15,7 @@ import { createTare, getTareTypes, getTares } from "../api/tares";
 import type { InboundOrder, InboundStatus } from "../types/inbound";
 import type { Item } from "../types";
 import type { Location } from "../types/location";
-import type { Zone, ZoneType } from "../types/zone";
+import { ZoneType, type Zone } from "../types/zone";
 import type { Tare, TareType } from "../types/tare";
 
 type ReceiveForm = {
