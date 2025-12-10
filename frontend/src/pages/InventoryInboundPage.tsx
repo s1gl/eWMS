@@ -219,12 +219,19 @@ export default function InventoryInboundPage() {
   const selectedLine = order?.lines.find((l) => l.id === Number(form.line_id));
   const lineItem = selectedLine ? items.find((i) => i.id === selectedLine.item_id) : null;
 
+  const lineColor = (ln: InboundOrder["lines"][number]) => {
+    if (ln.expected_qty === 0 || ln.line_status === "mis_sort") return "#ffe5e5";
+    if (ln.received_qty > ln.expected_qty) return "#fff5cc";
+    if (ln.expected_qty > 0 && ln.received_qty === ln.expected_qty) return "#e8f9e8";
+    return "transparent";
+  };
+
   return (
     <div className="page" style={{ width: "100%" }}>
       <Card title="Приёмка (работа через тару)">
         <p className="muted">
-          Выберите поставку, создайте или выберите тару, укажите товар, его состояние и количество. После завершения
-          сессии разместите тару в ячейке зоны приёмки.
+          Выберите поставку и строку, затем создавайте/выбирайте тару и принимайте товар. После завершения разместите
+          тару в ячейке зоны приёмки.
         </p>
         {error && <Notice tone="error">{error}</Notice>}
         {message && <Notice tone="success">{message}</Notice>}
@@ -265,7 +272,8 @@ export default function InventoryInboundPage() {
                 const it = items.find((i) => i.id === ln.item_id);
                 return (
                   <option key={ln.id} value={ln.id}>
-                    Строка #{ln.id} • {it ? it.name : `товар ${ln.item_id}`} • принято {ln.received_qty}/{ln.expected_qty}
+                    Строка #{ln.id} • {it ? it.name : `товар ${ln.item_id}`} • принято {ln.received_qty}/
+                    {ln.expected_qty}
                   </option>
                 );
               })}
@@ -275,107 +283,16 @@ export default function InventoryInboundPage() {
       </Card>
 
       {order && (
-        <div className="grid two">
-          <Card title="Тара">
-            <div className="table-wrapper">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Тип</th>
-                    <th>Код</th>
-                    <th>Ячейка</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tares.map((t) => {
-                    const tt = tareTypes.find((x) => x.id === t.type_id);
-                    const loc = locations.find((l) => l.id === t.location_id);
-                    return (
-                      <tr key={t.id}>
-                        <td>{tt ? tt.name : t.type_id}</td>
-                        <td>{t.tare_code}</td>
-                        <td>{loc ? loc.code : "—"}</td>
-                      </tr>
-                    );
-                  })}
-                  {tares.length === 0 && (
-                    <tr>
-                      <td colSpan={3} style={{ textAlign: "center" }}>
-                        Тары пока нет
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <div className="form inline" style={{ marginTop: 12 }}>
-              <FormField label="Тип тары">
-                <select
-                  value={newTareTypeId}
-                  onChange={(e) => setNewTareTypeId(e.target.value)}
-                >
-                  <option value="">Выберите тип</option>
-                  {tareTypes.map((tt) => (
-                    <option key={tt.id} value={tt.id}>
-                      {tt.name} ({tt.code})
-                    </option>
-                  ))}
-                </select>
-              </FormField>
-              <button type="button" onClick={handleCreateTare} disabled={loading || !order}>
-                Создать тару
-              </button>
-            </div>
-          </Card>
-
-          <Card title="Принять товар">
-            <form className="form" onSubmit={handleReceive}>
-              <FormField label="Товар (по строке или поиск SKU/штрихкода)">
-                <input
-                  value={lineItem ? `${lineItem.name} (${lineItem.sku})` : ""}
-                  placeholder="Выберите строку или найдите товар"
-                  readOnly
-                />
-                <div style={{ marginTop: 8 }}>
-                  <input
-                    type="text"
-                    placeholder="Поиск товара (SKU, штрихкод, название)"
-                    value={itemQuery}
-                    onChange={async (e) => {
-                      const q = e.target.value;
-                      setItemQuery(q);
-                      const list = await fetchItems({ query: q });
-                      setItems(list);
-                      const found = list.find((it) => it.sku === q || it.barcode === q);
-                      if (found) {
-                        setForm((prev) => ({ ...prev, item_id: String(found.id), line_id: "" }));
-                      }
-                    }}
-                  />
-                </div>
-              </FormField>
-
-              <FormField label="Состояние">
-                <select
-                  value={form.condition}
-                  onChange={(e) => setForm((prev) => ({ ...prev, condition: e.target.value }))}
-                >
-                  <option value="good">Годен</option>
-                  <option value="defect">Брак</option>
-                  <option value="quarantine">Карантин</option>
-                </select>
-              </FormField>
-
-              <FormField label="Сколько принять">
-                <input
-                  type="number"
-                  min={1}
-                  value={form.qty}
-                  onChange={(e) => setForm((prev) => ({ ...prev, qty: e.target.value }))}
-                  placeholder="Количество"
-                />
-              </FormField>
-
+        <div
+          className="grid"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 2fr",
+            gap: "16px",
+          }}
+        >
+          <div className="stack" style={{ display: "grid", gap: "12px" }}>
+            <Card title="Тара">
               <FormField label="Тара">
                 <select
                   value={form.tare_id}
@@ -392,21 +309,23 @@ export default function InventoryInboundPage() {
                   })}
                 </select>
               </FormField>
-
+              <FormField label="Тип тары">
+                <select value={newTareTypeId} onChange={(e) => setNewTareTypeId(e.target.value)}>
+                  <option value="">Выберите тип</option>
+                  {tareTypes.map((tt) => (
+                    <option key={tt.id} value={tt.id}>
+                      {tt.name} ({tt.code})
+                    </option>
+                  ))}
+                </select>
+              </FormField>
               <div className="actions-row">
-                <button
-                  type="submit"
-                  disabled={loading || !form.order_id || (!form.line_id && !form.item_id) || !form.tare_id}
-                >
-                  {loading ? "Приёмка..." : "Принять"}
+                <button type="button" onClick={handleCreateTare} disabled={loading || !order}>
+                  Создать тару
                 </button>
               </div>
-            </form>
-          </Card>
 
-          <Card title="Сохранить приёмку и разместить тару">
-            <div className="form inline">
-              <FormField label="Ячейка зоны приёмки">
+              <FormField label="Ячейка зоны приёмки" style={{ marginTop: 12 }}>
                 <select
                   value={form.placement_location_id}
                   onChange={(e) => setForm((prev) => ({ ...prev, placement_location_id: e.target.value }))}
@@ -422,13 +341,119 @@ export default function InventoryInboundPage() {
                   })}
                 </select>
               </FormField>
-              <button
-                type="button"
-                onClick={handleCloseTare}
-                disabled={loading || !form.tare_id || !form.placement_location_id || !order}
-              >
-                Сохранить приёмку
-              </button>
+              <div className="actions-row">
+                <button
+                  type="button"
+                  onClick={handleCloseTare}
+                  disabled={loading || !form.tare_id || !form.placement_location_id || !order}
+                >
+                  Сохранить приёмку
+                </button>
+              </div>
+            </Card>
+
+            <Card title="Принять товар">
+              <form className="form" onSubmit={handleReceive}>
+                <FormField label="Товар (строка или поиск SKU/штрихкода)">
+                  <input
+                    value={lineItem ? `${lineItem.name} (${lineItem.sku})` : ""}
+                    placeholder="Выберите строку или найдите товар"
+                    readOnly
+                  />
+                  <div style={{ marginTop: 8 }}>
+                    <input
+                      type="text"
+                      placeholder="Поиск товара (SKU, штрихкод, название)"
+                      value={itemQuery}
+                      onChange={async (e) => {
+                        const q = e.target.value;
+                        setItemQuery(q);
+                        const list = await fetchItems({ query: q });
+                        setItems(list);
+                        const found = list.find((it) => it.sku === q || it.barcode === q);
+                        if (found) {
+                          setForm((prev) => ({ ...prev, item_id: String(found.id), line_id: "" }));
+                        }
+                      }}
+                    />
+                  </div>
+                </FormField>
+
+                <FormField label="Состояние">
+                  <select
+                    value={form.condition}
+                    onChange={(e) => setForm((prev) => ({ ...prev, condition: e.target.value }))}
+                  >
+                    <option value="good">Годен</option>
+                    <option value="defect">Брак</option>
+                    <option value="quarantine">Карантин</option>
+                  </select>
+                </FormField>
+
+                <FormField label="Сколько принять">
+                  <input
+                    type="number"
+                    min={1}
+                    value={form.qty}
+                    onChange={(e) => setForm((prev) => ({ ...prev, qty: e.target.value }))}
+                    placeholder="Количество"
+                  />
+                </FormField>
+
+                <FormField label="Тара (если нужно выбрать другую)">
+                  <select
+                    value={form.tare_id}
+                    onChange={(e) => setForm((prev) => ({ ...prev, tare_id: e.target.value }))}
+                  >
+                    <option value="">Выберите тару</option>
+                    {tares.map((t) => {
+                      const tt = tareTypes.find((x) => x.id === t.type_id);
+                      return (
+                        <option key={t.id} value={t.id}>
+                          {t.tare_code} {tt ? `(${tt.name})` : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </FormField>
+
+                <div className="actions-row">
+                  <button
+                    type="submit"
+                    disabled={loading || !form.order_id || (!form.line_id && !form.item_id) || !form.tare_id}
+                  >
+                    {loading ? "Приёмка..." : "Принять"}
+                  </button>
+                </div>
+              </form>
+            </Card>
+          </div>
+
+          <Card title="Строки поставки">
+            <div className="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Товар</th>
+                    <th>Состояние</th>
+                    <th>Заявлено</th>
+                    <th>Факт</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {order.lines.map((ln) => {
+                    const it = items.find((i) => i.id === ln.item_id);
+                    return (
+                      <tr key={ln.id} style={{ backgroundColor: lineColor(ln) }}>
+                        <td>{it ? `${it.name} (${it.sku})` : `Товар ${ln.item_id}`}</td>
+                        <td>{ln.line_status || "—"}</td>
+                        <td>{ln.expected_qty}</td>
+                        <td>{ln.received_qty}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </Card>
         </div>
