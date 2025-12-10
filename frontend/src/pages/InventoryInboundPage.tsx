@@ -62,6 +62,8 @@ export default function InventoryInboundPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [showPlacementModal, setShowPlacementModal] = useState(false);
+  const [selectedPlacement, setSelectedPlacement] = useState<string>("");
 
   const inboundLocations = useMemo(() => {
     const zoneMap = zones.reduce<Record<number, Zone>>((acc, z) => {
@@ -192,7 +194,7 @@ export default function InventoryInboundPage() {
   const handleCloseTare = async () => {
     if (!order) return;
     const tareId = Number(form.tare_id);
-    const placeId = Number(form.placement_location_id);
+    const placeId = Number(selectedPlacement || form.placement_location_id);
     if (!tareId) return setError("Выберите тару для размещения");
     if (!placeId) return setError("Выберите ячейку приёмки");
     setLoading(true);
@@ -325,27 +327,18 @@ export default function InventoryInboundPage() {
                 </button>
               </div>
 
-              <FormField label="Ячейка зоны приёмки" style={{ marginTop: 12 }}>
-                <select
-                  value={form.placement_location_id}
-                  onChange={(e) => setForm((prev) => ({ ...prev, placement_location_id: e.target.value }))}
-                >
-                  <option value="">Выберите ячейку приёмки</option>
-                  {inboundLocations.map((loc) => {
-                    const zone = zones.find((z) => z.id === loc.zone_id);
-                    return (
-                      <option key={loc.id} value={loc.id}>
-                        {loc.code} {zone ? `(${zone.name})` : ""}
-                      </option>
-                    );
-                  })}
-                </select>
-              </FormField>
               <div className="actions-row">
                 <button
                   type="button"
-                  onClick={handleCloseTare}
-                  disabled={loading || !form.tare_id || !form.placement_location_id || !order}
+                  onClick={() => {
+                    const defaultPlacement =
+                      selectedPlacement ||
+                      form.placement_location_id ||
+                      (inboundLocations[0] ? String(inboundLocations[0].id) : "");
+                    setSelectedPlacement(defaultPlacement);
+                    setShowPlacementModal(true);
+                  }}
+                  disabled={loading || !form.tare_id || !order}
                 >
                   Сохранить приёмку
                 </button>
@@ -456,6 +449,64 @@ export default function InventoryInboundPage() {
               </table>
             </div>
           </Card>
+        </div>
+      )}
+      {showPlacementModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.4)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              padding: "16px",
+              borderRadius: 8,
+              width: "400px",
+              maxWidth: "90%",
+              boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
+            }}
+          >
+            <h3 style={{ marginTop: 0, marginBottom: 12 }}>Разместить тару</h3>
+            <FormField label="Ячейка зоны приёмки">
+              <select
+                value={selectedPlacement}
+                onChange={(e) => setSelectedPlacement(e.target.value)}
+              >
+                <option value="">Выберите ячейку приёмки</option>
+                {inboundLocations.map((loc) => {
+                  const zone = zones.find((z) => z.id === loc.zone_id);
+                  return (
+                    <option key={loc.id} value={loc.id}>
+                      {loc.code} {zone ? `(${zone.name})` : ""}
+                    </option>
+                  );
+                })}
+              </select>
+            </FormField>
+            <div className="actions-row" style={{ marginTop: 12, justifyContent: "flex-end", gap: 8 }}>
+              <button type="button" onClick={() => setShowPlacementModal(false)}>
+                Отмена
+              </button>
+              <button
+                type="button"
+                disabled={!selectedPlacement || loading}
+                onClick={async () => {
+                  setForm((prev) => ({ ...prev, placement_location_id: selectedPlacement }));
+                  await handleCloseTare();
+                  setShowPlacementModal(false);
+                }}
+              >
+                Разместить тару
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
